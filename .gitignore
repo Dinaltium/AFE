@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.db
+*.db-shm
+*.db-wal
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+pnpm-lock.yaml.bak
+
+# Env — never commit
+.env
+.env.local
+.env.production
+.env*.local
+.env.example
+apps/web/.env
+apps/web/.env.example
+services/engine/.env.example
+services/engine/.env
+
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
