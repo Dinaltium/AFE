@@ -38,6 +38,8 @@ class SplitResult(BaseModel):
     tax_rate: float
     collaborator_rate: float
     owner_rate: float
+    effective_tax_rate: float
+    tax_regime: str  # "slab" or "manual"
 
 
 class ConfidenceRoute(BaseModel):
