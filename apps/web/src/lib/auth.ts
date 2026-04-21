@@ -36,13 +36,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.email, credentials.email as string))
           .limit(1);
 
-        if (!user) return null;
+        if (!user || !user.passwordHash) return null;
 
-        // For credentials users, password is stored in a separate way
-        // We check against a hashed password stored in a virtual field
-        // This implementation assumes you store password hash somewhere separately
-        // For now we reject plain credentials until the sign-up flow populates passwords
-        return null;
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.passwordHash
+        );
+
+        if (!isValid) return null;
+
+        return user;
       },
     }),
   ],

@@ -29,12 +29,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 12);
     const [newUser] = await db
       .insert(users)
       .values({
         email,
         name,
         userType: userType ?? "creator",
+        passwordHash: hashedPassword,
       })
       .returning();
 

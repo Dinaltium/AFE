@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   image: text("image"),
   userType: userTypeEnum("user_type"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  passwordHash: text("password_hash"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
