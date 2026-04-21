@@ -72,16 +72,32 @@ export async function processPayment(payment: IncomingPayment): Promise<SplitRes
     body: JSON.stringify({ ...validated, user_id: user.id }),
   });
 
-  await db.insert(payments).values({
-    userId: user.id,
-    amount: String(result.amount),
-    source: result.source,
-    taxAmount: String(result.split.tax_amount),
-    collaboratorAmount: String(result.split.collaborator_amount),
-    ownerAmount: String(result.split.owner_amount),
-    confidence: String(result.route.confidence),
-    routeAction: result.route.action,
-    architectReasoning: result.architect_reasoning,
+  await db.transaction(async (tx) => {
+    const [newPayment] = await tx
+      .insert(payments)
+      .values({
+        userId: user.id!,
+        amount: String(result.amount),
+        source: result.source,
+        taxAmount: String(result.split.tax_amount),
+        collaboratorAmount: String(result.split.collaborator_amount),
+        ownerAmount: String(result.split.owner_amount),
+        confidence: String(result.route.confidence),
+        routeAction: result.route.action,
+        architectReasoning: result.architect_reasoning,
+        gstApplicable: result.gst_applicable,
+        gstAmount: String(result.split.gst_amount),
+        tdsDeducted: String(result.split.tds_credit),
+      })
+      .returning();
+
+    await tx.insert(auditEvents).values({
+      paymentId: newPayment.id,
+      userId: user.id!,
+      eventType: "PAYMENT_SPLIT",
+      description: `Split processed for ${result.source}: Tax ${result.split.tax_amount}, Collaborator ${result.split.collaborator_amount}, Owner ${result.split.owner_amount}`,
+      amount: String(result.amount),
+    });
   });
 
   return result;
