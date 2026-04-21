@@ -59,6 +59,10 @@ export const payments = pgTable("payments", {
   confidence: numeric("confidence"),
   routeAction: text("route_action"),
   architectReasoning: text("architect_reasoning"),
+  gstApplicable: boolean("gst_applicable").notNull().default(false),
+  gstAmount: numeric("gst_amount"),
+  tdsDeducted: numeric("tds_deducted"),
+  invoiceNumber: text("invoice_number"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

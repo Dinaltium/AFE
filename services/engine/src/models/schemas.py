@@ -40,6 +40,9 @@ class SplitResult(BaseModel):
     owner_rate: float
     effective_tax_rate: float
     tax_regime: str  # "slab" or "manual"
+    gst_amount: float = 0.0
+    tds_credit: float = 0.0
+    net_receivable: float
 
 
 class ConfidenceRoute(BaseModel):
