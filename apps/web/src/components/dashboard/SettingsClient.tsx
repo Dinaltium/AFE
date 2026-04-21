@@ -128,7 +128,7 @@ function ProfileTab({
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Read-only fields from auth */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label className="text-muted-foreground text-xs">
               Display Name
@@ -136,7 +136,7 @@ function ProfileTab({
             <Input
               value={session.name ?? ""}
               disabled
-              className="bg-muted/50 text-muted-foreground"
+              className="bg-muted/50 text-muted-foreground h-10"
             />
             <p className="text-[10px] text-muted-foreground">
               Managed by auth provider
@@ -145,7 +145,7 @@ function ProfileTab({
           <div className="space-y-2">
             <Label className="text-muted-foreground text-xs">User Type</Label>
             <Select disabled value={session.userType ?? "freelancer"}>
-              <SelectTrigger className="bg-muted/50 text-muted-foreground">
+              <SelectTrigger className="bg-muted/50 text-muted-foreground h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -158,15 +158,26 @@ function ProfileTab({
               Set during onboarding
             </p>
           </div>
+          <div className="space-y-2 md:col-span-1 lg:col-span-1">
+            <Label className="text-muted-foreground text-xs">Email Address</Label>
+            <Input
+              value={session.email ?? ""}
+              disabled
+              className="bg-muted/50 text-muted-foreground h-10"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Primary contact email
+            </p>
+          </div>
         </div>
 
         <Separator className="bg-border" />
 
         {/* Editable finance fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="annualIncome" className="text-sm text-foreground">
-              Annual Income Estimate (INR)
+            <Label htmlFor="annualIncome" className="text-sm text-foreground font-medium">
+              Annual Income (INR)
             </Label>
             <Input
               id="annualIncome"
@@ -175,10 +186,11 @@ function ProfileTab({
               placeholder="e.g. 1200000"
               value={annualIncome}
               onChange={(e) => setAnnualIncome(e.target.value)}
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="taxRate" className="text-sm text-foreground">
+            <Label htmlFor="taxRate" className="text-sm text-foreground font-medium">
               Tax Rate (decimal)
             </Label>
             <Input
@@ -190,10 +202,11 @@ function ProfileTab({
               placeholder="e.g. 0.20"
               value={taxRate}
               onChange={(e) => setTaxRate(e.target.value)}
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="collabName" className="text-sm text-foreground">
+            <Label htmlFor="collabName" className="text-sm text-foreground font-medium">
               Collaborator Name
             </Label>
             <Input
@@ -201,11 +214,12 @@ function ProfileTab({
               placeholder="e.g. Editor, Manager"
               value={collabName}
               onChange={(e) => setCollabName(e.target.value)}
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="collabRate" className="text-sm text-foreground">
-              Collaborator Rate (decimal)
+            <Label htmlFor="collabRate" className="text-sm text-foreground font-medium">
+              Collaborator Rate
             </Label>
             <Input
               id="collabRate"
@@ -216,6 +230,7 @@ function ProfileTab({
               placeholder="e.g. 0.10"
               value={collabRate}
               onChange={(e) => setCollabRate(e.target.value)}
+              className="h-10"
             />
           </div>
         </div>
@@ -526,7 +541,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {BASE_PRESETS.map((preset) => (
               <button
                 key={preset.id}
@@ -923,27 +938,26 @@ function SimulationTab({
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">Payment arrives every</p>
-              <div className="flex items-end gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Min (seconds)</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Min Interval (seconds)</Label>
                   <Input
                     type="number"
                     min={1}
                     max={maxInterval - 1}
                     value={minInterval}
                     onChange={(e) => setMinInterval(Math.max(1, Number(e.target.value)))}
-                    className="w-28"
+                    className="w-full h-10"
                   />
                 </div>
-                <span className="text-muted-foreground text-sm pb-2">to</span>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Max (seconds)</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Max Interval (seconds)</Label>
                   <Input
                     type="number"
                     min={minInterval + 1}
                     value={maxInterval}
                     onChange={(e) => setMaxInterval(Math.max(minInterval + 1, Number(e.target.value)))}
-                    className="w-28"
+                    className="w-full h-10"
                   />
                 </div>
               </div>
@@ -1019,12 +1033,15 @@ function SimulationTab({
 
               {clients.map((client, i) => (
                 <div key={client.id}>
-                  <div className="flex items-center justify-between py-3">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium text-foreground">{client.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {client.autoApprove ? "Auto-approve enabled" : "Requires manual approval"}
-                      </p>
+                  <div className="flex items-center justify-between py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{client.name}</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${client.autoApprove ? "bg-primary" : "bg-muted-foreground"}`} />
+                        <p className="text-[11px] text-muted-foreground">
+                          {client.autoApprove ? "Auto-approve active" : "Manual approval required"}
+                        </p>
+                      </div>
                     </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -1248,12 +1265,12 @@ function NotificationsTab() {
       <CardContent className="space-y-1">
         {NOTIFICATION_SETTINGS.map((setting, i) => (
           <div key={setting.id}>
-            <div className="flex items-center justify-between py-4">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium text-foreground">
+            <div className="flex items-center justify-between py-5">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
                   {setting.label}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground max-w-xl">
                   {setting.description}
                 </p>
               </div>
@@ -1286,8 +1303,8 @@ function NotificationsTab() {
 // --------------- Main Settings Component ---------------
 export function SettingsClient({ session, profile, simulationSettings, approvedClients }: SettingsClientProps) {
   return (
-    <Tabs defaultValue="profile" className="space-y-6">
-      <TabsList className="bg-muted border border-border grid grid-cols-5 w-full sm:w-auto sm:inline-grid">
+    <Tabs defaultValue="profile" className="space-y-6 w-full">
+      <TabsList className="bg-muted border border-border grid grid-cols-5 w-full">
         <TabsTrigger value="profile" className="text-xs">
           Profile
         </TabsTrigger>
