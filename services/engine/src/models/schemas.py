@@ -29,6 +29,7 @@ class IncomingPayment(BaseModel):
     source: str                    # e.g. "Nike India brand deal"
     user_id: str
     currency: str = "INR"
+    gst_applicable: bool = False
 
 
 class SplitResult(BaseModel):

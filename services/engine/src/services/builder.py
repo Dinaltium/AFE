@@ -29,6 +29,15 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     3. Owner keeps the rest
     """
     amount = payment.amount
+    
+    # GST and TDS logic
+    gst_amount = 0.0
+    tds_credit = 0.0
+    if payment.gst_applicable:
+        # India Standard GST for services is 18%
+        gst_amount = round(amount * 0.18, 2)
+        # Assume 10% TDS is withheld by the client on the base professional fee
+        tds_credit = round(amount * 0.10, 2)
 
     # Progressive tax calculation
     # Only use slab calculation when user.tax_rate is the default 0.20
@@ -39,7 +48,7 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
         effective_tax_rate = user.tax_rate
         tax_regime = "manual"
 
-    # Step 1 — tax off the top
+    # Step 1 — tax off the top (from the base professional fee)
     tax_amount = round(amount * effective_tax_rate, 2)
     after_tax = amount - tax_amount
 
@@ -49,8 +58,11 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     # Step 3 — owner keeps the rest (avoids floating point drift)
     owner_amount = round(amount - tax_amount - collaborator_amount, 2)
 
+    # Net Receivable is the owner share plus the TDS credit (since it's tax already paid)
+    net_receivable = round(owner_amount + tds_credit, 2)
+
     # Effective rates relative to original amount (for display)
-    owner_rate = round(owner_amount / amount, 4)
+    owner_rate = round(owner_amount / amount, 4) if amount > 0 else 0.0
 
     return SplitResult(
         tax_amount=tax_amount,
@@ -61,4 +73,7 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
         owner_rate=owner_rate,
         effective_tax_rate=effective_tax_rate,
         tax_regime=tax_regime,
+        gst_amount=gst_amount,
+        tds_credit=tds_credit,
+        net_receivable=net_receivable,
     )
