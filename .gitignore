@@ -22,10 +22,7 @@ pnpm-lock.yaml.bak
 .env.local
 .env.production
 .env*.local
-.env.example
 apps/web/.env
-apps/web/.env.example
-services/engine/.env.example
 services/engine/.env
 
 
