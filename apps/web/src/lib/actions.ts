@@ -11,6 +11,7 @@ import {
   simulationSettings,
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { z } from "zod";
 import type {
   AuditEventRead,
   DealVetRequest,
@@ -21,6 +22,15 @@ import type {
 } from "@/types";
 
 const ENGINE = process.env.ENGINE_URL ?? "http://localhost:8000";
+
+// Simple in-memory rate limiter for server actions
+const lastRequestTime = new Map<string, number>();
+
+const paymentSchema = z.object({
+  amount: z.number().positive(),
+  source: z.string().min(1),
+  gstApplicable: z.boolean().optional(),
+});
 
 async function engineFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${ENGINE}${path}`, {
@@ -45,9 +55,21 @@ async function requireSession() {
 
 export async function processPayment(payment: IncomingPayment): Promise<SplitResponse> {
   const user = await requireSession();
+
+  // Rate limiting: Max 2 requests per second
+  const now = Date.now();
+  const last = lastRequestTime.get(user.id!) ?? 0;
+  if (now - last < 500) {
+    throw new Error("Rate limit exceeded. Please wait a moment.");
+  }
+  lastRequestTime.set(user.id!, now);
+
+  // Input validation
+  const validated = paymentSchema.parse(payment);
+
   const result = await engineFetch<SplitResponse>("/split/", {
     method: "POST",
-    body: JSON.stringify({ ...payment, user_id: user.id }),
+    body: JSON.stringify({ ...validated, user_id: user.id }),
   });
 
   await db.insert(payments).values({
