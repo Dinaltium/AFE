@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/Badge";
 import { Check, X, Zap } from "lucide-react";
 import type { PendingPayment } from "@/hooks/useSimulation";
+import { useAFEStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 const COUNTDOWN_SECONDS = 60;
 
@@ -22,6 +24,7 @@ export function PendingPaymentCard({
   onReject,
 }: PendingPaymentCardProps) {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
+  const isGlassBoxMode = useAFEStore((s) => s.isGlassBoxMode);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -47,7 +50,10 @@ export function PendingPaymentCard({
       exit={{ x: 320, opacity: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <Card className="w-80 bg-card border-border shadow-xl overflow-hidden">
+      <Card className={cn(
+        "w-80 bg-card border-border shadow-xl overflow-hidden transition-all duration-500",
+        isGlassBoxMode && "glow-primary border-primary/40 ring-1 ring-primary/20"
+      )}>
         {/* Countdown bar */}
         <div className="h-0.5 bg-border">
           <motion.div

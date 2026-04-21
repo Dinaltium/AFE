@@ -4,14 +4,21 @@ import { eventColor } from "@/lib/utils";
 import { EVENT_ICONS } from "@/lib/constants";
 import type { AuditEventRead } from "@/types";
 import { Dot } from "lucide-react";
+import { useAFEStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 interface GlassBoxFeedProps {
   events: AuditEventRead[];
 }
 
 export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
+  const isGlassBoxMode = useAFEStore((s) => s.isGlassBoxMode);
+
   return (
-    <div className="h-full flex flex-col">
+    <div className={cn(
+      "h-full flex flex-col transition-all duration-500",
+      isGlassBoxMode && "shadow-[0_0_25px_rgba(34,197,94,0.15)] bg-primary/5 rounded-lg p-2 -m-2 border border-primary/20"
+    )}>
       <div className="flex items-center gap-2 mb-4">
         <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
         <h2 className="font-medium text-foreground text-sm">Glass Box</h2>
