@@ -170,6 +170,26 @@ export function DashboardOverview({
           {/* Left + Centre column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Income chart */}
+            {payments.length === 0 && (
+              <Card className="bg-card border-border border-dashed">
+                <CardContent className="p-12 flex flex-col items-center text-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1">No payments yet</p>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Process your first payment to see your income breakdown, tax split, 
+                      and Glass Box audit trail.
+                    </p>
+                  </div>
+                  <Button size="sm" className="bg-primary text-primary-foreground">
+                    Process a payment
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {chartData.length > 0 && (
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
