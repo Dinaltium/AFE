@@ -140,9 +140,8 @@ export function DashboardOverview({
       )}
 
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <Tabs defaultValue="overview" className="w-full">
-            <div className="flex items-center justify-between mb-4">
+        <Tabs defaultValue="overview" className="w-full">
+          <div className="flex items-center justify-between mb-4">
               <TabsList className="bg-muted/50">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="gst">GST Reconciliation</TabsTrigger>
