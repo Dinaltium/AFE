@@ -19,7 +19,7 @@ interface AFEStore {
 }
 
 export const useAFEStore = create<AFEStore>((set) => ({
-  activeUserId: "aarav",
+  activeUserId: "",
   setActiveUser: (id) => set({ activeUserId: id }),
 
   payments: [],
@@ -34,3 +34,20 @@ export const useAFEStore = create<AFEStore>((set) => ({
   isVetting: false,
   setIsVetting: (v) => set({ isVetting: v }),
 }));
+
+// Hydration fix for Next.js
+import { useState, useEffect } from "react";
+
+export function useStore<T, F>(
+  store: (callback: (state: T) => unknown) => unknown,
+  callback: (state: T) => F
+) {
+  const result = store(callback) as F;
+  const [data, setData] = useState<F>();
+
+  useEffect(() => {
+    setData(result);
+  }, [result]);
+
+  return data;
+}
