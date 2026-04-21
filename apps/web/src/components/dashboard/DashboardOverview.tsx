@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GSTReconciliation } from "@/components/dashboard/GSTReconciliation";
 import { useAFEStore } from "@/lib/store";
 import { useSimulation } from "@/hooks/useSimulation";
 import type { AuditEventRead } from "@/types";
@@ -139,18 +141,26 @@ export function DashboardOverview({
 
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-foreground">Overview</h1>
-          {simulationEnabled && !simulation.isRunning && (
-            <Button
-              size="sm"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5"
-              onClick={simulation.start}
-            >
-              <Play className="w-3.5 h-3.5" />
-              Start Simulation
-            </Button>
-          )}
-        </div>
+          <Tabs defaultValue="overview" className="w-full">
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="gst">GST Reconciliation</TabsTrigger>
+              </TabsList>
+
+              {simulationEnabled && !simulation.isRunning && (
+                <Button
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5"
+                  onClick={simulation.start}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Simulation
+                </Button>
+              )}
+            </div>
+
+            <TabsContent value="overview" className="space-y-6 mt-0">
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -348,16 +358,24 @@ export function DashboardOverview({
             )}
           </div>
 
-          {/* Right — Glass Box feed */}
-          <div className="lg:col-span-1">
-            <Card className="bg-card border-border min-h-[480px] flex flex-col">
-              <CardContent className="p-4 flex-1 flex flex-col">
-                <GlassBoxFeed events={auditLog} />
-              </CardContent>
-            </Card>
+            </div>
+
+            {/* Right — Glass Box feed */}
+            <div className="lg:col-span-1">
+              <Card className="bg-card border-border min-h-[480px] flex flex-col">
+                <CardContent className="p-4 flex-1 flex flex-col">
+                  <GlassBoxFeed events={auditLog} />
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="gst">
+          <GSTReconciliation payments={payments} />
+        </TabsContent>
+      </Tabs>
+    </div>
 
       {/* Pending payment notification stack — fixed bottom-right */}
       <PendingPaymentStack
