@@ -11,6 +11,7 @@ import {
   Target,
   Settings2,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+import { useAFEStore } from "@/lib/store";
 
 interface NavItem {
   label: string;
@@ -46,6 +49,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ session }: AppSidebarProps) {
   const pathname = usePathname();
+  const { isGlassBoxMode, setIsGlassBoxMode } = useAFEStore();
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -118,6 +122,20 @@ export function AppSidebar({ session }: AppSidebarProps) {
                   </span>
                 )}
               </div>
+            </div>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
+            <div className="flex items-center justify-between px-4 py-2 group-data-[collapsible=icon]:hidden border-t border-border/50 mt-2 pt-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-medium text-foreground">Glass Box Mode</span>
+              </div>
+              <Switch 
+                checked={isGlassBoxMode} 
+                onCheckedChange={setIsGlassBoxMode} 
+                className="scale-75"
+              />
             </div>
           </SidebarMenuItem>
 

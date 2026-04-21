@@ -16,6 +16,9 @@ interface AFEStore {
 
   isVetting: boolean;
   setIsVetting: (v: boolean) => void;
+
+  isGlassBoxMode: boolean;
+  setIsGlassBoxMode: (v: boolean) => void;
 }
 
 export const useAFEStore = create<AFEStore>((set) => ({
@@ -33,6 +36,9 @@ export const useAFEStore = create<AFEStore>((set) => ({
 
   isVetting: false,
   setIsVetting: (v) => set({ isVetting: v }),
+
+  isGlassBoxMode: false,
+  setIsGlassBoxMode: (v) => set({ isGlassBoxMode: v }),
 }));
 
 // Hydration fix for Next.js
