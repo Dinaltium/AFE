@@ -15,6 +15,7 @@ import { GlassBoxFeed } from "@/components/glass-box/GlassBoxFeed";
 import { SimulationBanner } from "@/components/dashboard/SimulationBanner";
 import { PendingPaymentStack } from "@/components/dashboard/PendingPaymentCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -49,6 +50,7 @@ interface DashboardOverviewProps {
   simulationEnabled: boolean;
   minIntervalSeconds: number;
   maxIntervalSeconds: number;
+  loading?: boolean;
 }
 
 export function DashboardOverview({
@@ -58,6 +60,7 @@ export function DashboardOverview({
   simulationEnabled,
   minIntervalSeconds,
   maxIntervalSeconds,
+  loading = false,
 }: DashboardOverviewProps) {
   const { auditLog, setAuditLog } = useAFEStore();
 
@@ -157,7 +160,11 @@ export function DashboardOverview({
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                    <p className={`text-lg font-semibold ${color}`}>{value}</p>
+                    {loading ? (
+                      <Skeleton className="h-7 w-24 mt-1" />
+                    ) : (
+                      <p className={`text-lg font-semibold ${color}`}>{value}</p>
+                    )}
                   </div>
                   <Icon className="w-4 h-4 text-muted-foreground mt-0.5" />
                 </div>

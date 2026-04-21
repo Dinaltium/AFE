@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getAuditLog, getPaymentHistory, getSimulationSettings } from "@/lib/actions";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 
-export default async function DashboardPage() {
+async function DashboardContent() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -22,5 +24,13 @@ export default async function DashboardPage() {
       minIntervalSeconds={simSettings?.minIntervalSeconds ?? 5}
       maxIntervalSeconds={simSettings?.maxIntervalSeconds ?? 180}
     />
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
   );
 }
