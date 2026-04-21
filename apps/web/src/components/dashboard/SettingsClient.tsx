@@ -128,7 +128,7 @@ function ProfileTab({
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Read-only fields from auth */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
           <div className="space-y-2">
             <Label className="text-muted-foreground text-xs">
               Display Name
@@ -174,7 +174,7 @@ function ProfileTab({
         <Separator className="bg-border" />
 
         {/* Editable finance fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full">
           <div className="space-y-2">
             <Label htmlFor="annualIncome" className="text-sm text-foreground font-medium">
               Annual Income (INR)
@@ -531,9 +531,9 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 w-full">
       {/* Built-in presets */}
-      <Card className="bg-card border-border">
+      <Card className="w-full bg-card border-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
             <Palette className="w-4 h-4 text-primary" />
@@ -541,7 +541,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 w-full">
             {BASE_PRESETS.map((preset) => (
               <button
                 key={preset.id}
@@ -577,7 +577,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
 
       {/* My Themes */}
       {customThemes.length > 0 && (
-        <Card className="bg-card border-border">
+        <Card className="w-full bg-card border-border shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium text-foreground">
               My Themes
@@ -649,14 +649,14 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
       )}
 
       {/* Color pickers + save as theme */}
-      <Card className="bg-card border-border">
+      <Card className="w-full bg-card border-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-medium text-foreground">
             Custom Colors
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <CardContent className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
             {[
               { label: "Primary / Accent", value: primaryColor, setter: setPrimaryColor },
               { label: "Background", value: backgroundColor, setter: setBackgroundColor },
@@ -693,7 +693,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
 
           {/* Preview strip */}
           <div
-            className="rounded-lg border border-border p-4 space-y-2"
+            className="rounded-lg border border-border p-8 space-y-4 w-full h-40 flex flex-col justify-center"
             style={{ background: backgroundColor }}
           >
             <p className="text-xs font-medium" style={{ color: foregroundColor }}>
@@ -746,7 +746,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
 
       {/* Edit theme dialog */}
       <Dialog open={!!editingTheme} onOpenChange={(open) => { if (!open) setEditingTheme(null); }}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogContent className="bg-card border-border sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-foreground">Edit Theme</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -898,7 +898,7 @@ function SimulationTab({
   return (
     <div className="space-y-6">
       {/* Master toggle */}
-      <Card className="bg-card border-border">
+      <Card className="w-full bg-card border-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
             <Cpu className="w-4 h-4 text-primary" />
@@ -930,7 +930,7 @@ function SimulationTab({
       {enabled && (
         <>
           {/* Interval settings */}
-          <Card className="bg-card border-border">
+          <Card className="w-full bg-card border-border shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium text-foreground">
                 Payment Interval
@@ -1003,22 +1003,22 @@ function SimulationTab({
                         Auto-approve
                       </Label>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4">
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs"
+                        className="h-10 px-6 text-sm"
                         onClick={() => { setIsAddingClient(false); setNewClientName(""); }}
                       >
                         Cancel
                       </Button>
                       <Button
                         size="sm"
-                        className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                        className="h-10 px-6 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
                         onClick={addClient}
                         disabled={isPending}
                       >
-                        Add
+                        Add Client
                       </Button>
                     </div>
                   </div>
@@ -1255,7 +1255,7 @@ function NotificationsTab() {
   );
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="w-full bg-card border-border shadow-none">
       <CardHeader>
         <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
           <Bell className="w-4 h-4 text-primary" />
@@ -1270,7 +1270,7 @@ function NotificationsTab() {
                 <p className="text-sm font-semibold text-foreground">
                   {setting.label}
                 </p>
-                <p className="text-[11px] text-muted-foreground max-w-xl">
+                <p className="text-[11px] text-muted-foreground w-full">
                   {setting.description}
                 </p>
               </div>
