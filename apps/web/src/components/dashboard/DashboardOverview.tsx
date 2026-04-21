@@ -358,18 +358,16 @@ export function DashboardOverview({
             )}
           </div>
 
-            </div>
-
-            {/* Right — Glass Box feed */}
-            <div className="lg:col-span-1">
-              <Card className="bg-card border-border min-h-[480px] flex flex-col">
-                <CardContent className="p-4 flex-1 flex flex-col">
-                  <GlassBoxFeed events={auditLog} />
-                </CardContent>
-              </Card>
-            </div>
+          {/* Right — Glass Box feed */}
+          <div className="lg:col-span-1">
+            <Card className="bg-card border-border min-h-[480px] flex flex-col">
+              <CardContent className="p-4 flex-1 flex flex-col">
+                <GlassBoxFeed events={auditLog} />
+              </CardContent>
+            </Card>
           </div>
-        </TabsContent>
+        </div>
+      </TabsContent>
 
         <TabsContent value="gst">
           <GSTReconciliation payments={payments} />
