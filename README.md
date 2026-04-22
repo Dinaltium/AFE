@@ -2,12 +2,31 @@
 
 > Agentic AI that auto-splits gig worker income, vets deals, and logs every financial decision transparently.
 
+## Problem statement
+
+Independent workers (creators, freelancers, consultants) receive irregular income across multiple sources and must make fast, high-stakes decisions:
+
+- What is the **true take‑home** after tax/GST/TDS considerations?
+- How should revenue be **split with collaborators** fairly and consistently?
+- Is an incoming offer **market‑fair**, or is it underpriced/overscoped?
+
+Today these are handled with spreadsheets, ad-hoc rules, and inconsistent judgement, which leads to under‑saving for taxes, collaborator disputes, and accepting underpriced work.
+
+**AFE** addresses this by combining a deterministic finance “builder” (repeatable math) with an AI “architect” and “vetting” agent (decision support) and a “glass box” audit trail (explainability).
+
+## Outcomes
+
+- **Consistency**: identical inputs produce identical split outputs
+- **Transparency**: every action has a human-readable audit log entry
+- **Control**: confidence routing supports auto‑execute vs pending approval vs flagged
+- **Speed**: users can process payments and vet deals in seconds
+
 ## Structure
 
 ```
 afe/
 ├── apps/
-│   └── web/              # Next.js 15 — dashboard UI
+│   └── web/              # Next.js — dashboard UI
 ├── services/
 │   └── engine/           # Python FastAPI — AI engine
 ├── .github/
@@ -44,7 +63,21 @@ pnpm install                     # from repo root
 pnpm dev                         # starts apps/web on :3000
 ```
 
-## Three User Profiles
+## Architecture (high level)
+
+```
+Web (Next.js)
+  ├─ Auth (NextAuth)
+  ├─ Server actions (DB writes/reads)
+  └─ Engine proxy calls (ENGINE_URL)
+
+Engine (FastAPI)
+  ├─ /split  → architect + router + builder
+  ├─ /vet    → vetting agent
+  └─ /audit  → glass box log
+```
+
+## Demo user profiles
 
 | User | Type | Demo Payment |
 |------|------|-------------|
@@ -66,14 +99,20 @@ Payment arrives
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 15 App Router, TailwindCSS, Shadcn/ui, Recharts |
+| Frontend | Next.js App Router, TailwindCSS, shadcn/ui, Recharts |
 | State | Zustand |
 | Linting | Biome |
 | Package manager | pnpm |
 | Backend | Python FastAPI, Pydantic v2, SQLModel |
-| AI | Claude API (primary), OpenAI API (fallback) |
+| AI | Multi-provider (Groq/NVIDIA/Together) in engine |
 | Database | SQLite (dev) → Neon Postgres (prod) |
 | CI | GitHub Actions |
+
+## Security & operations notes
+
+- **Secrets**: never commit `.env` / `.env.local`. Use Vercel env vars and Hugging Face Space Secrets.
+- **Auditability**: engine and web record human-readable reasoning for key actions.
+- **Health checks**: engine exposes `GET /health`; web build should pass `pnpm -C apps/web build`.
 
 ## Team
 
