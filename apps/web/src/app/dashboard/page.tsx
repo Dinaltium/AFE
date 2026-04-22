@@ -10,16 +10,25 @@ async function DashboardContent() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // Ensure Glass Box has data even for historical payments
-  await seedHistoricalAuditLog();
+  let paymentHistory: Awaited<ReturnType<typeof getPaymentHistory>> = [];
+  let auditLog: Awaited<ReturnType<typeof getAuditLog>> = [];
+  let profile: Awaited<ReturnType<typeof db.query.userProfiles.findFirst>> = null;
 
-  const [paymentHistory, auditLog, profile] = await Promise.all([
-    getPaymentHistory(),
-    getAuditLog(),
-    db.query.userProfiles.findFirst({
-      where: (up, { eq }) => eq(up.userId, session.user.id),
-    }),
-  ]);
+  try {
+    // Ensure Glass Box has data even for historical payments.
+    await seedHistoricalAuditLog();
+
+    [paymentHistory, auditLog, profile] = await Promise.all([
+      getPaymentHistory(),
+      getAuditLog(),
+      db.query.userProfiles.findFirst({
+        where: (up, { eq }) => eq(up.userId, session.user.id),
+      }),
+    ]);
+  } catch (error) {
+    // Avoid crashing /dashboard on transient DB or engine issues.
+    console.error("[Dashboard] Failed to load data:", error);
+  }
 
   return (
     <DashboardOverview
