@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.core.config import settings
 from src.core.database import create_db_and_tables
-from src.routers import split, audit, vet, users
+from src.routers import split, audit, vet, users, connectors
 
 # Configure structured logging
 logging.basicConfig(
@@ -82,3 +82,4 @@ app.include_router(split.router)
 app.include_router(audit.router)
 app.include_router(vet.router)
 app.include_router(users.router)
+app.include_router(connectors.router)
