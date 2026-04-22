@@ -23,6 +23,11 @@ import type { UserProfile, DealVetResponse } from "@/types";
 interface VettingPanelProps {
   activeUser: UserProfile;
   onVetComplete?: (result: DealVetResponse) => void;
+  initialData?: {
+    subject?: string;
+    amount?: number;
+    description?: string;
+  };
 }
 
 const EXAMPLES = [
@@ -43,10 +48,18 @@ const EXAMPLES = [
   },
 ];
 
-export function VettingPanel({ activeUser, onVetComplete }: VettingPanelProps) {
+export function VettingPanel({ activeUser, onVetComplete, initialData }: VettingPanelProps) {
   const { vet, result, isVetting } = useVetting();
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [amount, setAmount] = useState(initialData?.amount ? String(initialData.amount) : "");
+
+  // Update when initialData changes (from parent)
+  useEffect(() => {
+    if (initialData) {
+      setDescription(initialData.description || initialData.subject || "");
+      setAmount(initialData.amount ? String(initialData.amount) : "");
+    }
+  }, [initialData]);
 
   async function handleVet() {
     if (!description || !amount) return;
@@ -82,10 +95,6 @@ export function VettingPanel({ activeUser, onVetComplete }: VettingPanelProps) {
             <BrainCircuit className="w-5 h-5 text-primary" />
           </div>
           <h2 className="text-lg font-semibold tracking-tight">Deal Vetting Agent</h2>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/50 border border-border text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-          AI Powered
         </div>
       </div>
 

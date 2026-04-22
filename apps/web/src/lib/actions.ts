@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   users,
@@ -11,6 +12,7 @@ import {
   inboxEmails,
   bankTransactions,
   bankAccounts,
+  accounts,
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -74,33 +76,26 @@ export async function processPayment(payment: IncomingPayment): Promise<SplitRes
     body: JSON.stringify({ ...validated, user_id: user.id }),
   });
 
-  await db.transaction(async (tx) => {
-    const [newPayment] = await tx
-      .insert(payments)
-      .values({
-        userId: user.id!,
-        amount: String(result.amount),
-        source: result.source,
-        taxAmount: String(result.split.tax_amount),
-        collaboratorAmount: String(result.split.collaborator_amount),
-        ownerAmount: String(result.split.owner_amount),
-        confidence: String(result.route.confidence),
-        routeAction: result.route.action,
-        architectReasoning: result.architect_reasoning,
-        gstApplicable: result.gst_applicable,
-        gstAmount: String(result.split.gst_amount),
-        tdsDeducted: String(result.split.tds_credit),
-      })
-      .returning();
-
-    await tx.insert(auditEvents).values({
-      paymentId: newPayment.id,
+  const [newPayment] = await db
+    .insert(payments)
+    .values({
       userId: user.id!,
-      eventType: "PAYMENT_SPLIT",
-      description: `Split processed for ${result.source}: Tax ${result.split.tax_amount}, Collaborator ${result.split.collaborator_amount}, Owner ${result.split.owner_amount}`,
       amount: String(result.amount),
-    });
-  });
+      source: result.source,
+      taxAmount: String(result.split.tax_amount),
+      collaboratorAmount: String(result.split.collaborator_amount),
+      collaboratorSplits: result.split.collaborator_splits, // NEW: Individual shares
+      ownerAmount: String(result.split.owner_amount),
+      confidence: String(result.route.confidence),
+      routeAction: result.route.action,
+      architectReasoning: result.architect_reasoning,
+      gstApplicable: result.gst_applicable,
+      gstAmount: String(result.split.gst_amount),
+      tdsDeducted: String(result.split.tds_credit),
+    })
+    .returning();
+
+
 
   return result;
 }
@@ -143,7 +138,7 @@ export async function getUsers(): Promise<UserProfile[]> {
   return engineFetch<UserProfile[]>("/users/");
 }
 
-export async function getPaymentHistory(page = 0, limit = 20) {
+export async function getPaymentHistory(page = 0, limit = 1000) {
   const user = await requireSession();
 
   const rows = await db
@@ -160,6 +155,7 @@ export async function getPaymentHistory(page = 0, limit = 20) {
     source: p.source,
     taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
     collaboratorAmount: p.collaboratorAmount ? Number(p.collaboratorAmount) : null,
+    collaboratorSplits: p.collaboratorSplits,
     ownerAmount: p.ownerAmount ? Number(p.ownerAmount) : null,
     confidence: p.confidence ? Number(p.confidence) : null,
     routeAction: p.routeAction,
@@ -209,6 +205,9 @@ export async function updateUserProfile(data: {
       updatedAt: new Date(),
     })
     .where(eq(userProfiles.userId, user.id));
+
+  console.log("[DEBUG] Updated user profile with:", data);
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function deleteAccount() {
@@ -227,6 +226,33 @@ export async function logRejection(source: string, amount: number) {
 }
 
 // ─── Connector Account Actions ───────────────────────────────────────────────
+
+export async function getVettingRequests() {
+  const user = await requireSession();
+  return db.select()
+    .from(inboxEmails)
+    .where(
+      and(
+        eq(inboxEmails.userId, user.id),
+        eq(inboxEmails.afeAction, "vet")
+      )
+    )
+    .orderBy(desc(inboxEmails.receivedAt));
+}
+
+export async function markVettingAsRead() {
+  const user = await requireSession();
+  await db.update(inboxEmails)
+    .set({ status: "read" })
+    .where(
+      and(
+        eq(inboxEmails.userId, user.id),
+        eq(inboxEmails.afeAction, "vet"),
+        eq(inboxEmails.status, "unread")
+      )
+    );
+  revalidatePath("/dashboard", "layout");
+}
 
 export async function getConnectorAccounts() {
   const user = await requireSession();
@@ -284,6 +310,7 @@ export async function getInboxEmails(limit = 50) {
     .limit(limit);
 }
 
+
 export async function saveInboxEmail(data: {
   connectorId?: string;
   connectorType: string;
@@ -318,6 +345,33 @@ export async function updateEmailStatus(
   await db
     .update(inboxEmails)
     .set({ status, afeAction, afeActionId, processedAt: new Date() })
+    .where(
+      and(eq(inboxEmails.id, emailId), eq(inboxEmails.userId, user.id))
+    );
+}
+
+export async function updateEmailClassification(
+  emailId: string,
+  data: {
+    category: string;
+    reasoning: string;
+    confidence: number;
+    action: string;
+    amount?: number;
+    source?: string;
+  }
+) {
+  const user = await requireSession();
+  await db
+    .update(inboxEmails)
+    .set({
+      emailCategory: data.category,
+      classifierReasoning: data.reasoning,
+      classifierConfidence: String(data.confidence),
+      afeAction: data.action,
+      extractedAmount: data.amount ? String(data.amount) : null,
+      extractedSource: data.source,
+    })
     .where(
       and(eq(inboxEmails.id, emailId), eq(inboxEmails.userId, user.id))
     );
@@ -421,6 +475,23 @@ export async function updateBankBalance(delta: number) {
 export async function syncGmailEmails() {
   const user = await requireSession();
 
+  // 1. Get Google account tokens from NextAuth accounts table
+  const [googleAccount] = await db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.userId, user.id),
+        eq(accounts.provider, "google")
+      )
+    )
+    .limit(1);
+
+  if (!googleAccount?.access_token) {
+    throw new Error("Gmail not connected. Please click 'Connect Gmail' first.");
+  }
+
+  // 2. Ensure we have a connector_accounts record to track sync status
   const [connector] = await db
     .select()
     .from(connectorAccounts)
@@ -432,30 +503,43 @@ export async function syncGmailEmails() {
     )
     .limit(1);
 
-  if (!connector || connector.status !== "connected") {
-    throw new Error("Gmail not connected");
+  if (!connector) {
+    await db.insert(connectorAccounts).values({
+      userId: user.id!,
+      type: "gmail",
+      status: "connected",
+      lastSyncedAt: new Date(),
+    });
+  } else if (connector.status !== "connected") {
+    await db
+      .update(connectorAccounts)
+      .set({ status: "connected", lastSyncedAt: new Date() })
+      .where(eq(connectorAccounts.id, connector.id));
   }
 
-  const config = connector.config as { accessToken?: string } | null;
-  if (!config?.accessToken) throw new Error("No Gmail access token stored");
-
+  const accessToken = googleAccount.access_token;
   const query = encodeURIComponent(
     "subject:(payment OR invoice OR credited OR brand deal OR collaboration OR paid) newer_than:7d"
   );
 
+  // 3. Fetch from Gmail API
   const listRes = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`,
-    { headers: { Authorization: `Bearer ${config.accessToken}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
-  if (!listRes.ok) throw new Error(`Gmail API error: ${listRes.status}`);
+  if (!listRes.ok) {
+    if (listRes.status === 401) throw new Error("Gmail session expired. Please reconnect.");
+    throw new Error(`Gmail API error: ${listRes.status}`);
+  }
+  
   const listData = await listRes.json();
   const messages: { id: string }[] = listData.messages ?? [];
 
   for (const msg of messages.slice(0, 10)) {
     const msgRes = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`,
-      { headers: { Authorization: `Bearer ${config.accessToken}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!msgRes.ok) continue;
     const msgData = await msgRes.json();
@@ -486,7 +570,7 @@ export async function syncGmailEmails() {
     if (existing.length > 0) continue;
 
     const saved = await saveInboxEmail({
-      connectorId: connector.id,
+      connectorId: connector?.id,
       connectorType: "gmail",
       fromName,
       fromEmail,
@@ -496,6 +580,7 @@ export async function syncGmailEmails() {
       status: "unread",
     });
 
+    // 4. AIS-driven classification
     const classification = await engineFetch<{
       category: string;
       extracted_amount?: number;
@@ -540,8 +625,10 @@ export async function syncGmailEmails() {
     }
   }
 
-  await db
-    .update(connectorAccounts)
-    .set({ lastSyncedAt: new Date() })
-    .where(eq(connectorAccounts.id, connector.id));
+  if (connector) {
+    await db
+      .update(connectorAccounts)
+      .set({ lastSyncedAt: new Date() })
+      .where(eq(connectorAccounts.id, connector.id));
+  }
 }

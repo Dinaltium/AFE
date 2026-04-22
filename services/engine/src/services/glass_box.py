@@ -61,14 +61,32 @@ def log_full_payment_flow(
             amount=amount,
         )
     else:
+        gst_str = f" (incl. GST ₹{split.gst_amount:,.0f})" if split.gst_amount else ""
+        tds_str = f" [TDS Credit: ₹{split.tds_credit:,.0f}]" if split.tds_credit else ""
+        
+        # Build individual collaborator segments
+        collab_segments = []
+        # split.collaborator_splits is a list of dicts from builder.py
+        splits = split.collaborator_splits or []
+        for s in splits:
+            # Handle both dict and object (pydantic)
+            name = s.get("name") if isinstance(s, dict) else getattr(s, "name", "Collaborator")
+            c_amt = s.get("amount") if isinstance(s, dict) else getattr(s, "amount", 0)
+            collab_segments.append(f"{name} ₹{c_amt:,.0f}")
+        
+        collab_detail = " · ".join(collab_segments) if collab_segments else f"Collaborator ₹{split.collaborator_amount:,.0f}"
+        tax_pct = round(getattr(split, "tax_rate", 0) * 100)
+        
+        description = (
+            f"Tax ₹{split.tax_amount:,.0f} ({tax_pct}%) · "
+            f"{collab_detail} · "
+            f"Owner ₹{split.owner_amount:,.0f} · All wallets updated."
+        )
+
         log_event(
             session, payment_id, user_id,
             event_type="SplitExecuted",
-            description=(
-                f"Tax ₹{split.tax_amount:,.0f} · "
-                f"Collaborator ₹{split.collaborator_amount:,.0f} · "
-                f"Owner ₹{split.owner_amount:,.0f} · All wallets updated."
-            ),
+            description=description,
             amount=amount,
         )
 

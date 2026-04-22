@@ -54,7 +54,7 @@ export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
                   <span className={`font-semibold ${eventColor(e.event_type)}`}>
                     {e.event_type}
                   </span>
-                  <p className="text-muted-foreground/80 leading-snug break-words mt-0.5">
+                  <p className="text-muted-foreground/80 leading-snug break-words mt-0.5 whitespace-pre-wrap">
                     {e.description}
                   </p>
                 </div>

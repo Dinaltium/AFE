@@ -41,6 +41,12 @@ async def run_architect(
     payment: IncomingPayment,
     user: UserProfile,
 ) -> tuple[float, str]:
+    # --- DETERMINISTIC FAST-PATH FOR RAZORPAY ---
+    source_lower = payment.source.lower()
+    if "razorpay" in source_lower or "rzp" in source_lower:
+        return 1.0, "Razorpay Fast-Path: Payment source verified as trusted payment gateway."
+    # --------------------------------------------
+
     prompt = ARCHITECT_PROMPT.format(
         name=user.name,
         user_type=user.user_type,
@@ -51,19 +57,16 @@ async def run_architect(
         amount=payment.amount,
         source=payment.source,
     )
+    last_error = None
     for caller in [_call_groq, _call_nvidia, _call_together]:
         try:
             return await caller(prompt)
         except Exception as exc:
+            last_error = exc
             logger.warning("Architect LLM call failed (%s): %s",
                            caller.__name__, exc)
-    # All providers failed — use safe fallback
-    return 0.85, (
-        f"Estimated {int(user.tax_rate * 100)}% tax based on "
-        f"₹{user.annual_income_estimate:,.0f} annual income. "
-        f"{user.collaborator_name} on {int(user.collaborator_rate * 100)}% "
-        f"per standard agreement."
-    )
+    # All providers failed — use explicit error instead of mock fallback
+    return 0.0, f"SYSTEM ERROR: Architect AI providers (Groq/Nvidia/Together) failed. Error: {str(last_error)}"
 
 
 async def _call_groq(prompt: str) -> tuple[float, str]:

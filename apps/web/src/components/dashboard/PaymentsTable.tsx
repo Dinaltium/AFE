@@ -1,7 +1,7 @@
 "use client";
 
 import { formatINR, routeDisplay } from "@/lib/utils";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -19,6 +19,7 @@ type PaymentRow = {
   source: string;
   taxAmount: number | null;
   collaboratorAmount: number | null;
+  collaboratorSplits: any[] | null;
   ownerAmount: number | null;
   confidence: number | null;
   routeAction: string | null;
@@ -100,6 +101,7 @@ export function PaymentsTable({ payments, loading = false }: PaymentsTableProps)
           <TableBody>
             {payments.map((p) => {
               const { label, color } = routeDisplay(p.routeAction ?? "");
+              const splits = (p.collaboratorSplits as any[]) || [];
               return (
                 <TableRow key={p.id} className="border-border">
                   <TableCell className="pl-6 text-muted-foreground text-xs whitespace-nowrap">
@@ -112,10 +114,26 @@ export function PaymentsTable({ payments, loading = false }: PaymentsTableProps)
                     {formatINR(p.amount)}
                   </TableCell>
                   <TableCell className="text-destructive">
-                    {formatINR(p.taxAmount ?? 0)}
+                    <div className="flex flex-col">
+                      <span>{formatINR(p.taxAmount ?? 0)}</span>
+                      {p.amount > 0 && (
+                        <span className="text-[10px] opacity-70">
+                          {Math.round(((p.taxAmount ?? 0) / p.amount) * 100)}%
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-blue-400">
-                    {formatINR(p.collaboratorAmount ?? 0)}
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-medium text-foreground">{formatINR(p.collaboratorAmount ?? 0)}</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {splits.map((s: any, idx: number) => (
+                                        <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 whitespace-nowrap">
+                                          {s.name}: {formatINR(s.amount)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
                   </TableCell>
                   <TableCell className="text-primary font-medium">
                     {formatINR(p.ownerAmount ?? 0)}
@@ -135,3 +153,5 @@ export function PaymentsTable({ payments, loading = false }: PaymentsTableProps)
     </Card>
   );
 }
+
+// Refreshed

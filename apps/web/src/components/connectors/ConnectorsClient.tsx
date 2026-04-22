@@ -1,12 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { Mail, Inbox, Building2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, Inbox, Building2, CheckCircle2, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { upsertConnectorAccount } from "@/lib/actions";
+import { upsertConnectorAccount, syncGmailEmails } from "@/lib/actions";
 import { toast } from "sonner";
+import { signIn } from "next-auth/react";
 
 interface ConnectorAccount {
   id: string;
@@ -27,16 +28,22 @@ export function ConnectorsClient({ connectors, userId }: ConnectorsClientProps) 
   const isGmailConnected = gmail?.status === "connected";
 
   const handleConnectGmail = () => {
+    // Redirect to Google OAuth for Gmail scope
+    signIn("google", { 
+      callbackUrl: "/dashboard/settings?tab=account",
+      // Trigger consent again to ensure we get a refresh token
+      prompt: "consent", 
+      access_type: "offline",
+    });
+  };
+
+  const handleSyncGmail = () => {
     startTransition(async () => {
       try {
-        await upsertConnectorAccount({
-          type: "gmail",
-          status: "connected",
-          config: { email: "demo@gmail.com" },
-        });
-        toast.success("Gmail connected successfully");
+        await syncGmailEmails();
+        toast.success("Gmail synced successfully");
       } catch (err) {
-        toast.error("Failed to connect Gmail");
+        toast.error("Sync failed: " + (err as Error).message);
       }
     });
   };
@@ -72,9 +79,14 @@ export function ConnectorsClient({ connectors, userId }: ConnectorsClientProps) 
             <Button
               className="w-full"
               variant={isGmailConnected ? "outline" : "default"}
-              onClick={isGmailConnected ? undefined : handleConnectGmail}
+              onClick={isGmailConnected ? handleSyncGmail : handleConnectGmail}
               disabled={isPending}
             >
+              {isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : isGmailConnected ? (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              ) : null}
               {isGmailConnected ? "Sync Now" : "Connect Gmail"}
             </Button>
             <p className="text-[10px] text-muted-foreground text-center">

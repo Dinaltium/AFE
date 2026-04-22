@@ -1,11 +1,12 @@
 "use client";
+// Refreshed dashboard overview
 
 import { useEffect } from "react";
 import {
   Bar,
   BarChart,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
   Legend,
@@ -22,7 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/Badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GSTReconciliation } from "@/components/dashboard/GSTReconciliation";
@@ -35,7 +42,9 @@ type PaymentRow = {
   amount: number;
   source: string;
   taxAmount: number | null;
+  taxRate?: number | null;
   collaboratorAmount: number | null;
+  collaboratorSplits: any[] | null;
   ownerAmount: number | null;
   confidence: number | null;
   routeAction: string | null;
@@ -69,22 +78,39 @@ export function DashboardOverview({
 
   const totalProcessed = payments.reduce((s, p) => s + p.amount, 0);
   const totalTax = payments.reduce((s, p) => s + (p.taxAmount ?? 0), 0);
-  const totalCollaborator = payments.reduce(
-    (s, p) => s + (p.collaboratorAmount ?? 0),
-    0
-  );
   const totalOwner = payments.reduce((s, p) => s + (p.ownerAmount ?? 0), 0);
+
+  const collaboratorTotals = payments.reduce((acc, p) => {
+    const splits = (p.collaboratorSplits as any[]) || [];
+    splits.forEach((s) => {
+      acc[s.name] = (acc[s.name] || 0) + Number(s.amount);
+    });
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Get all unique collaborator names for chart bars
+  const collaboratorNames = Array.from(
+    new Set(
+      payments.flatMap((p) => (p.collaboratorSplits as any[] || []).map((s) => s.name))
+    )
+  );
 
   const chartData = payments
     .slice(0, 6)
     .reverse()
-    .map((p) => ({
-      name:
-        p.source.length > 18 ? `${p.source.slice(0, 18)}\u2026` : p.source,
-      Tax: Math.round(p.taxAmount ?? 0),
-      Collaborator: Math.round(p.collaboratorAmount ?? 0),
-      "Take-home": Math.round(p.ownerAmount ?? 0),
-    }));
+    .map((p) => {
+      const d: any = {
+        name: p.source.length > 18 ? `${p.source.slice(0, 18)}\u2026` : p.source,
+        Tax: Math.round(p.taxAmount ?? 0),
+        "Take-home": Math.round(p.ownerAmount ?? 0),
+      };
+      // Add individual collaborator amounts to the data object
+      const splits = (p.collaboratorSplits as any[]) || [];
+      splits.forEach((s) => {
+        d[s.name] = Math.round(s.amount);
+      });
+      return d;
+    });
 
   const stats = [
     {
@@ -92,25 +118,29 @@ export function DashboardOverview({
       value: formatINR(totalProcessed),
       icon: TrendingUp,
       color: "text-foreground",
+      tooltip: "Gross revenue before any splits or taxes.",
     },
     {
       label: "Tax Reserved",
       value: formatINR(totalTax),
       icon: Banknote,
       color: "text-destructive",
-    },
-    {
-      label: "Collaborator Paid",
-      value: formatINR(totalCollaborator),
-      icon: Users,
-      color: "text-blue-400",
+      tooltip: "Estimated tax to be reserved based on your current income slab.",
     },
     {
       label: "Take-home",
       value: formatINR(totalOwner),
       icon: Wallet,
       color: "text-primary",
+      tooltip: "Net amount remaining for you after all splits and tax reservations.",
     },
+    ...Object.entries(collaboratorTotals).map(([name, total]) => ({
+      label: `Paid: ${name}`,
+      value: formatINR(total),
+      icon: Users,
+      color: "text-blue-500",
+      tooltip: `Total amount distributed to ${name}.`,
+    })),
   ];
 
   return (
@@ -127,25 +157,38 @@ export function DashboardOverview({
             <TabsContent value="overview" className="space-y-6 mt-0">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map(({ label, value, icon: Icon, color }) => (
-            <Card key={label} className="bg-card border-border">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                    {loading ? (
-                      <Skeleton className="h-7 w-24 mt-1" />
-                    ) : (
-                      <p className={`text-lg font-semibold ${color}`}>{value}</p>
-                    )}
-                  </div>
-                  <Icon className="w-4 h-4 text-muted-foreground mt-0.5" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {stats.map(({ label, value, icon: Icon, color, tooltip }) => (
+              <Tooltip key={label}>
+                <TooltipTrigger asChild>
+                  <Card className="bg-card border-border cursor-help">
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {label}
+                          </p>
+                          {loading ? (
+                            <Skeleton className="h-7 w-24 mt-1" />
+                          ) : (
+                            <p className={`text-lg font-semibold ${color}`}>
+                              {value}
+                            </p>
+                          )}
+                        </div>
+                        <Icon className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left + Centre column */}
@@ -200,7 +243,7 @@ export function DashboardOverview({
                           `\u20b9${(v / 1000).toFixed(0)}k`
                         }
                       />
-                      <Tooltip
+                      <RechartsTooltip
                         contentStyle={{
                           background: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
@@ -222,17 +265,25 @@ export function DashboardOverview({
                           color: "hsl(var(--muted-foreground))",
                         }}
                       />
-                      <Bar dataKey="Tax" stackId="a" fill="#FF4C4C" opacity={0.8} />
-                      <Bar
-                        dataKey="Collaborator"
-                        stackId="a"
-                        fill="#38BDF8"
-                        opacity={0.8}
-                      />
                       <Bar
                         dataKey="Take-home"
                         stackId="a"
-                        fill="#00FF9C"
+                        fill="hsl(var(--primary))"
+                        radius={[0, 0, 0, 0]}
+                      />
+                      {collaboratorNames.map((name, i) => (
+                        <Bar
+                          key={name}
+                          dataKey={name}
+                          stackId="a"
+                          fill={["#3b82f6", "#60a5fa", "#93c5fd", "#2563eb", "#1d4ed8"][i % 5]}
+                          radius={[0, 0, 0, 0]}
+                        />
+                      ))}
+                      <Bar
+                        dataKey="Tax"
+                        stackId="a"
+                        fill="hsl(var(--destructive))"
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
@@ -265,6 +316,9 @@ export function DashboardOverview({
                         <TableHead className="text-muted-foreground">
                           Take-home
                         </TableHead>
+                        <TableHead className="text-muted-foreground">
+                          Collaborators
+                        </TableHead>
                         <TableHead className="pr-6 text-muted-foreground">
                           Route
                         </TableHead>
@@ -275,6 +329,9 @@ export function DashboardOverview({
                         const { label, color } = routeDisplay(
                           p.routeAction ?? ""
                         );
+                        // @ts-ignore - dynamic column added via migration
+                        const splits = p.collaboratorSplits as any[] | null;
+                        
                         return (
                           <TableRow key={p.id} className="border-border">
                             <TableCell className="pl-6 font-medium text-foreground">
@@ -286,13 +343,32 @@ export function DashboardOverview({
                               {formatINR(p.amount)}
                             </TableCell>
                             <TableCell className="text-destructive">
-                              {formatINR(p.taxAmount ?? 0)}
+                              <div className="flex flex-col">
+                                <span>{formatINR(p.taxAmount ?? 0)}</span>
+                                {p.amount > 0 && (
+                                  <span className="text-[10px] opacity-70">
+                                    {Math.round(((p.taxAmount ?? 0) / p.amount) * 100)}% tax
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
-                            <TableCell className="text-primary">
+                            <TableCell className="text-primary font-medium">
                               {formatINR(p.ownerAmount ?? 0)}
                             </TableCell>
+                             <TableCell className="text-sky-400">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="font-medium text-foreground">{formatINR(p.collaboratorAmount ?? 0)}</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {splits && splits.map((s, idx) => (
+                                        <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 whitespace-nowrap">
+                                          {s.name}: {formatINR(s.amount)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                             </TableCell>
                             <TableCell className="pr-6">
-                              <Badge className={`text-xs ${color}`}>
+                              <Badge className={`text-[10px] py-0 h-5 ${color}`}>
                                 {label}
                               </Badge>
                             </TableCell>

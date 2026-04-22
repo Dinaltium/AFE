@@ -1,7 +1,7 @@
 "use client";
 
 import { formatINR, routeDisplay } from "@/lib/utils";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/badge";
 import type { SplitResponse } from "@/types";
 
 interface RecentSplitsProps {
@@ -40,3 +40,5 @@ export function RecentSplits({ payments }: RecentSplitsProps) {
     </div>
   );
 }
+
+// Refreshed

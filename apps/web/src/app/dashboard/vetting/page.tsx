@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getUserProfile } from "@/lib/actions";
+import { getUserProfile, getVettingRequests } from "@/lib/actions";
 import { VettingPageClient } from "@/components/dashboard/VettingPageClient";
 import type { UserProfile, UserType } from "@/types";
 
@@ -8,7 +8,10 @@ export default async function VettingPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const profile = await getUserProfile();
+  const [profile, vettingRequests] = await Promise.all([
+    getUserProfile(),
+    getVettingRequests(),
+  ]);
 
   // Build a UserProfile from DB profile + session data
   const userProfile: UserProfile = {
@@ -33,7 +36,10 @@ export default async function VettingPage() {
           AI-powered deal analysis — check if an offer is fair before you accept
         </p>
       </div>
-      <VettingPageClient activeUser={userProfile} />
+      <VettingPageClient 
+        activeUser={userProfile} 
+        initialRequests={vettingRequests as any[]} 
+      />
     </div>
   );
 }

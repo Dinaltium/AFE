@@ -6,41 +6,31 @@ from src.models.schemas import GeneratedEmail, UserProfile
 
 logger = logging.getLogger(__name__)
 
-EMAIL_GENERATOR_PROMPT = """You are an email generator for a finance demo app.
-Generate ONE realistic email for a {user_type} named {user_name}.
+EMAIL_GENERATOR_PROMPT = """You are an email generator for AFE's financial stress-test module.
+Generate ONE highly realistic email for a {user_type} named {user_name}.
 
-Choose one of these types (weight toward financial):
-- payment_confirmation (35%): A payment has been received/credited
-- brand_deal (25%): A brand or company offering a collaboration
-- invoice_reminder (15%): A client sending a payment reminder or invoice
-- spam (15%): Generic spam — lottery, crypto, fake job, phishing
-- newsletter (10%): Industry newsletter or platform announcement
+Choose one of these specific types:
+1. payment_confirmation (40%): A legitimate-looking payment from Razorpay, PayTM, PhonePe, or a brand.
+2. brand_deal / vetting (30%): A professional collaboration offer. 
+   - MUST include budget in INR, deliverables, and a timeline.
+   - Example: "Hi {user_name}, I am from Nike's marketing team. We have a budget of ₹50,000 for a Reel sponsorship."
+3. fake_spam (30%): Dangerous, irregular, or phishing emails.
+   - EXAMPLE: "X89 your account has been credited Rs5000. of Proceed to withdraw during available times. Lots redeeming! bit.ly/4vylx65 JwelryGarmentsAcesrynMore"
+   - Use irregular grammar, shortlinks, and suspicious "credit" claims.
 
-SENDER EMAIL RULES — must look real but slightly off (not legitimate):
-  Good: noreply.payments@razorpaymail.com, brand.india@nikecorp.net
-  Good: aarav.payments@youtube-adsense.co, payments@upwork-notifications.com
-  Good: soccer23@gmail.com, deals.india2024@outlook.com
-  Bad (too obviously fake): money@bank.com, deals@deals.com
+SENDER RULES:
+- For payments: noreply@razorpay.in, alerts@paytm.com, etc.
+- For deals: marketing@brandname.co, collaborations@agency.net.
+- For spam: Random strings like "payout-v89@outlook.com" or "user5672@gmail.com".
 
-For payment_confirmation emails:
-  Creators: YouTube AdSense, Spotify, Twitch, Nike, Boat, Mamaearth
-  Freelancers: Upwork, Toptal, Razorpay, direct client names
-  Consultants: Retainer notices, workshop fees, advisory payments
-  Always include a specific INR amount
-
-For brand_deal emails:
-  Use real brand names but fake contact emails
-  Include a specific budget offer in INR
-  Mention deliverables (reels, posts, integration, etc.)
-
-Respond ONLY with valid JSON — no preamble, no markdown, no code fences:
+Respond ONLY with valid JSON:
 {{
-  "from_name": "<realistic sender display name>",
-  "from_email": "<sender email, looks real but slightly off>",
-  "subject": "<email subject line>",
-  "body": "<full email body, 3-6 sentences, professional tone>",
-  "category": "<payment|deal|spam|newsletter|unknown>",
-  "suggested_amount": <float INR if payment or deal, otherwise null>
+  "from_name": "<sender name>",
+  "from_email": "<sender email>",
+  "subject": "<subject line>",
+  "body": "<full body>",
+  "category": "<payment|deal|spam>",
+  "suggested_amount": <float INR or null>
 }}"""
 
 
@@ -67,16 +57,34 @@ async def generate_email(user: UserProfile) -> GeneratedEmail:
 
 
 def _fallback_email(user: UserProfile) -> GeneratedEmail:
+    if random.random() < 0.3:
+        # Generate a fake/spam email
+        amount = random.randint(1000, 5000)
+        return GeneratedEmail(
+            from_name="Account Alerts",
+            from_email="noreply.v98@gmail.com",
+            subject=f"URGENT: ₹{amount} Credited",
+            body=f"X89 your account has been credited Rs{amount}. of Proceed to withdraw during available times. Lots redeeming! bit.ly/4vylx65 JwelryGarmentsAcesrynMore",
+            category="spam",
+            suggested_amount=float(amount)
+        )
+    
+    gateways = [
+        ("Razorpay Payments", "noreply@razorpay-notifications.com"),
+        ("PayTM Wallet", "alerts@paytm-payments.in"),
+        ("PhonePe Support", "notifications@phonepe-corp.com")
+    ]
+    name, email = random.choice(gateways)
     amount = float(random.randint(10, 100) * 1000)
     return GeneratedEmail(
-        from_name="Razorpay Payments",
-        from_email="noreply@razorpay-notifications.com",
-        subject=f"Payment Credited — ₹{amount:,.0f}",
+        from_name=name,
+        from_email=email,
+        subject=f"Payment Received — ₹{amount:,.0f}",
         body=(
-            f"Hi {user.name}, a payment of ₹{amount:,.0f} has been credited "
-            "to your linked account. Transaction reference: RZP-DEMO-0001. "
-            "Please log in to view full transaction details. "
-            "This is an automated notification from Razorpay."
+            f"Hi {user.name}, you have received a payment of ₹{amount:,.0f} "
+            f"via {name.split()[0]}. Transaction ID: {random.randint(100000, 999999)}. "
+            "The funds have been added to your balance. "
+            f"Thank you for using {name.split()[0]}."
         ),
         category="payment",
         suggested_amount=amount,

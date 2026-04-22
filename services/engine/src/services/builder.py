@@ -55,10 +55,13 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     
     # Handle the new multi-collaborator list if present, else fallback to legacy
     collaborators = user.collaborators or []
+    print(f"[DEBUG] User: {user.name} | Collaborators from profile: {collaborators}")
+    
     # If no collaborators in list but legacy field has a name, add it as a temporary collaborator
     if not collaborators and user.collaborator_name and user.collaborator_rate > 0:
         from src.models.schemas import Collaborator
         collaborators = [Collaborator(name=user.collaborator_name, rate=user.collaborator_rate)]
+        print(f"[DEBUG] Using legacy collaborator fallback: {collaborators}")
 
     for collab in collaborators:
         c_amount = round(after_tax * collab.rate, 2)

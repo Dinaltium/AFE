@@ -31,7 +31,8 @@ async def _fetch_profile_from_neon(user_id: str) -> Optional[UserProfile]:
                     p.annual_income_estimate,
                     p.tax_rate,
                     p.collaborator_rate,
-                    p.collaborator_name
+                    p.collaborator_name,
+                    p.collaborators
                 FROM users u
                 LEFT JOIN user_profiles p ON p.user_id = u.id
                 WHERE u.id = $1
@@ -45,6 +46,39 @@ async def _fetch_profile_from_neon(user_id: str) -> Optional[UserProfile]:
         if row is None:
             return None
 
+        # Parse collaborators if they exist
+        import json
+        collabs_raw = row["collaborators"]
+        print(f"[DEBUG] Raw collaborators from DB: {collabs_raw} (Type: {type(collabs_raw)})")
+        collabs = []
+        if collabs_raw:
+            try:
+                # asyncpg should return list for jsonb, but handle string just in case
+                raw_list = collabs_raw if isinstance(collabs_raw, list) else json.loads(collabs_raw)
+                
+                for i, c in enumerate(raw_list):
+                    print(f"[DEBUG] Processing collaborator {i}: {c}")
+                    # Ensure name and rate exist
+                    name = c.get("name") or c.get("label") or f"Collaborator {i+1}"
+                    raw_rate = c.get("rate") or c.get("percentage") or 0
+                    
+                    try:
+                        rate = float(raw_rate)
+                        # Handle both 0.10 and 10% formats
+                        if rate > 1.0:
+                            rate = rate / 100.0
+                    except:
+                        rate = 0.0
+                        
+                    collabs.append({
+                        "name": str(name),
+                        "rate": float(rate)
+                    })
+                print(f"[DEBUG] Final parsed collaborators: {collabs}")
+            except Exception as e:
+                logger.error("Failed to parse collaborators JSON for user %s: %s", user_id, e)
+                print(f"[DEBUG] ERROR parsing collaborators: {e}")
+
         return UserProfile(
             id=str(row["id"]),
             name=row["name"] or "User",
@@ -53,6 +87,7 @@ async def _fetch_profile_from_neon(user_id: str) -> Optional[UserProfile]:
             tax_rate=float(row["tax_rate"] or 0),
             collaborator_rate=float(row["collaborator_rate"] or 0),
             collaborator_name=row["collaborator_name"] or "",
+            collaborators=collabs,
         )
     except Exception as exc:
         logger.error("Database lookup failed for user %s: %s", user_id, exc)

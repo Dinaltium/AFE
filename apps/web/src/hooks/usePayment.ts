@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { processPayment, getAuditLog } from "@/lib/actions";
 import { useAFEStore } from "@/lib/store";
 
 export function usePayment() {
+  const router = useRouter();
   const { addPayment, setAuditLog, isSplitting, setIsSplitting } = useAFEStore();
 
   async function split(amount: number, source: string, userId: string) {
@@ -15,6 +17,7 @@ export function usePayment() {
       // Refresh Glass Box from DB
       const freshLog = await getAuditLog(userId);
       setAuditLog(freshLog);
+      router.refresh();
       return result;
     } catch (err) {
       console.error("Split failed:", err);

@@ -2,7 +2,7 @@ import {
   ArrowDownToLine,
   Brain,
   CheckCircle2,
-  AlertTriangle,
+  TriangleAlert,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,5 +31,5 @@ export const EVENT_ICONS: Record<string, LucideIcon> = {
   PaymentReceived: ArrowDownToLine,
   ArchitectDecision: Brain,
   SplitExecuted: CheckCircle2,
-  PaymentFlagged: AlertTriangle,
+  PaymentFlagged: TriangleAlert,
 };

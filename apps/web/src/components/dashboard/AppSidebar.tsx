@@ -27,23 +27,16 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
 import { useAFEStore } from "@/lib/store";
+import { getVettingRequests } from "@/lib/actions";
+import { useEffect, useState } from "react";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  hasNotification?: boolean;
 }
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
-  { label: "Audit Log", href: "/dashboard/audit", icon: Shield },
-  { label: "Vetting", href: "/dashboard/vetting", icon: Target },
-  { label: "Connectors", href: "/dashboard/connectors", icon: Plug },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings2 },
-];
 
 interface AppSidebarProps {
   session: Session;
@@ -51,7 +44,28 @@ interface AppSidebarProps {
 
 export function AppSidebar({ session }: AppSidebarProps) {
   const pathname = usePathname();
-  const { isGlassBoxMode, setIsGlassBoxMode } = useAFEStore();
+  const { isGlassBoxMode } = useAFEStore();
+  const [vettingCount, setVettingCount] = useState(0);
+
+  useEffect(() => {
+    getVettingRequests().then(reqs => {
+      const pending = reqs.filter(r => r.status === "unread");
+      setVettingCount(pending.length);
+    });
+  }, [pathname]);
+
+  const NAV_ITEMS: NavItem[] = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
+    { label: "Audit Log", href: "/dashboard/audit", icon: Shield },
+    { 
+      label: "Vetting", 
+      href: "/dashboard/vetting", 
+      icon: Target,
+      hasNotification: vettingCount > 0
+    },
+    { label: "Settings", href: "/dashboard/settings", icon: Settings2 },
+  ];
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -79,7 +93,7 @@ export function AppSidebar({ session }: AppSidebarProps) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+              {NAV_ITEMS.map(({ label, href, icon: Icon, hasNotification }) => {
                 const isActive =
                   href === "/dashboard"
                     ? pathname === "/dashboard"
@@ -87,9 +101,12 @@ export function AppSidebar({ session }: AppSidebarProps) {
                 return (
                   <SidebarMenuItem key={href}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
-                      <Link href={href}>
+                      <Link href={href} className="relative">
                         <Icon className="shrink-0" />
                         <span>{label}</span>
+                        {hasNotification && (
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -124,20 +141,6 @@ export function AppSidebar({ session }: AppSidebarProps) {
                   </span>
                 )}
               </div>
-            </div>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <div className="flex items-center justify-between px-4 py-2 group-data-[collapsible=icon]:hidden border-t border-border/50 mt-2 pt-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Glass Box Mode</span>
-              </div>
-              <Switch 
-                checked={isGlassBoxMode} 
-                onCheckedChange={setIsGlassBoxMode} 
-                className="scale-75"
-              />
             </div>
           </SidebarMenuItem>
 

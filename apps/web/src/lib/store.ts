@@ -37,7 +37,7 @@ export const useAFEStore = create<AFEStore>((set) => ({
   isVetting: false,
   setIsVetting: (v) => set({ isVetting: v }),
 
-  isGlassBoxMode: false,
+  isGlassBoxMode: true,
   setIsGlassBoxMode: (v) => set({ isGlassBoxMode: v }),
 }));
 

@@ -56,6 +56,7 @@ export const payments = pgTable("payments", {
   source: text("source").notNull(),
   taxAmount: numeric("tax_amount"),
   collaboratorAmount: numeric("collaborator_amount"),
+  collaboratorSplits: jsonb("collaborator_splits"),
   ownerAmount: numeric("owner_amount"),
   confidence: numeric("confidence"),
   routeAction: text("route_action"),

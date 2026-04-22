@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { History, Clock, TrendingUp, Info } from "lucide-react";
+import { History, Clock, TrendingUp, Info, Mail } from "lucide-react";
 import { VettingPanel } from "@/components/vetting/VettingPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/badge";
 import { formatINR, scoreColor, cn } from "@/lib/utils";
 import type { UserProfile, DealVetResponse } from "@/types";
 
@@ -30,6 +30,7 @@ interface VettedDeal {
 
 interface VettingPageClientProps {
   activeUser: UserProfile;
+  initialRequests?: any[];
 }
 
 const VERDICT_COLORS: Record<DealVetResponse["verdict"], string> = {
@@ -39,8 +40,14 @@ const VERDICT_COLORS: Record<DealVetResponse["verdict"], string> = {
   overscoped: "bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/20",
 };
 
-export function VettingPageClient({ activeUser }: VettingPageClientProps) {
+export function VettingPageClient({ activeUser, initialRequests = [] }: VettingPageClientProps) {
   const [vettedDeals, setVettedDeals] = useState<VettedDeal[]>([]);
+  const [inboxRequests, setInboxRequests] = useState(initialRequests);
+  const [activeRequest, setActiveRequest] = useState<any | null>(null);
+
+  useEffect(() => {
+    markVettingAsRead();
+  }, []);
 
   function handleVetComplete(result: DealVetResponse) {
     const deal: VettedDeal = {
@@ -57,10 +64,52 @@ export function VettingPageClient({ activeUser }: VettingPageClientProps) {
       reasoning: result.reasoning,
     };
     setVettedDeals((prev) => [deal, ...prev]);
+    // If we just vetted an inbox request, remove it from the list
+    if (activeRequest) {
+      setInboxRequests(prev => prev.filter(r => r.id !== activeRequest.id));
+      setActiveRequest(null);
+    }
   }
 
   return (
     <div className="space-y-10">
+      {/* Incoming Requests Section */}
+      {inboxRequests.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <Mail className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
+              Incoming Requests ({inboxRequests.length})
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {inboxRequests.map((req) => (
+              <Card key={req.id} className="bg-card/40 border-primary/20 hover:border-primary/40 transition-colors">
+                <CardContent className="p-4 space-y-3">
+                  <div>
+                    <h4 className="font-semibold text-sm truncate">{req.subject}</h4>
+                    <p className="text-[10px] text-muted-foreground">From: {req.fromEmail}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground">
+                      Amount: {req.extractedAmount ? formatINR(Number(req.extractedAmount)) : "Unknown"}
+                    </span>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-7 text-[10px] border-primary/50 text-primary hover:bg-primary/10"
+                      onClick={() => setActiveRequest(req)}
+                    >
+                      Vet Deal
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Vetting Panel Section */}
       <section>
         <Card className="bg-background/50 backdrop-blur-sm border-border shadow-sm overflow-hidden">
@@ -68,6 +117,11 @@ export function VettingPageClient({ activeUser }: VettingPageClientProps) {
             <VettingPanel
               activeUser={activeUser}
               onVetComplete={handleVetComplete}
+              initialData={activeRequest ? {
+                subject: activeRequest.subject,
+                amount: activeRequest.extractedAmount ? Number(activeRequest.extractedAmount) : 0,
+                description: activeRequest.bodyPreview || activeRequest.subject
+              } : undefined}
             />
           </CardContent>
         </Card>
@@ -167,3 +221,5 @@ export function VettingPageClient({ activeUser }: VettingPageClientProps) {
     </div>
   );
 }
+
+// Refreshed

@@ -21,12 +21,14 @@ export function routeDisplay(action: string) {
   switch (action) {
     case "auto_execute":
       return { label: "Auto executed", color: "text-green-700 bg-green-50 border-green-200" };
+    case "split":
+      return { label: "Split", color: "text-green-700 bg-green-50 border-green-200" };
     case "pending_approval":
       return { label: "Pending approval", color: "text-amber-700 bg-amber-50 border-amber-200" };
     case "flagged":
       return { label: "Flagged", color: "text-red-700 bg-red-50 border-red-200" };
     default:
-      return { label: action, color: "text-gray-700 bg-gray-50 border-gray-200" };
+      return { label: action.replace("_", " "), color: "text-gray-700 bg-gray-50 border-gray-200" };
   }
 }
 

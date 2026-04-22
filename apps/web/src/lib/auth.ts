@@ -3,9 +3,9 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, userProfiles, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import { users, userProfiles, accounts, sessions, verificationTokens, connectorAccounts } from "@/lib/db/schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -22,8 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope:
-            "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+          scope: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
           access_type: "offline",
           prompt: "consent",
         },
@@ -58,14 +57,64 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
-        // Fetch extra user fields
+        token.email = user.email;
+      }
+
+      // Capture Google OAuth tokens for the Gmail connector
+      if (account && account.provider === "google") {
+        const userId = token.id as string;
+        if (userId) {
+          try {
+            const existing = await db
+              .select()
+              .from(connectorAccounts)
+              .where(
+                and(
+                  eq(connectorAccounts.userId, userId),
+                  eq(connectorAccounts.type, "gmail")
+                )
+              )
+              .limit(1);
+
+            const config = {
+              accessToken: account.access_token,
+              refreshToken: account.refresh_token,
+              scope: account.scope,
+              expiresAt: account.expires_at,
+            };
+
+            if (existing.length > 0) {
+              await db
+                .update(connectorAccounts)
+                .set({
+                  status: "connected",
+                  config,
+                  lastSyncedAt: new Date(),
+                })
+                .where(eq(connectorAccounts.id, existing[0].id));
+            } else {
+              await db.insert(connectorAccounts).values({
+                userId,
+                type: "gmail",
+                status: "connected",
+                config,
+              });
+            }
+          } catch (error) {
+            console.error("Failed to save connector tokens:", error);
+          }
+        }
+      }
+
+      // Fetch extra user fields
+      if (token.id) {
         const [dbUser] = await db
           .select()
           .from(users)
-          .where(eq(users.id, user.id as string))
+          .where(eq(users.id, token.id as string))
           .limit(1);
         if (dbUser) {
           token.userType = dbUser.userType ?? undefined;

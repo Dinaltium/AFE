@@ -51,18 +51,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { 
-  CheckCircle2, 
-  Palette, 
-  AlertTriangle, 
-  Bell, 
-  MoreVertical, 
-  Pencil, 
-  Trash2, 
-  Cpu, 
-  Plus, 
-  Banknote, 
-  Users 
+  Users, RefreshCw, Loader2, Mail, Inbox, Building2, CheckCircle2, AlertCircle, Palette, Banknote, Plus, Trash2, Bell, MoreVertical, Pencil, TriangleAlert, CircleAlert, CircleCheck, Trash
 } from "lucide-react";
+import { ConnectorsClient } from "@/components/connectors/ConnectorsClient";
 
 interface SessionData {
   id: string;
@@ -85,6 +76,8 @@ interface ProfileData {
 interface SettingsClientProps {
   session: SessionData;
   profile: ProfileData | null;
+  connectors: any[];
+  activeTab?: string;
 }
 
 // --------------- Profile Tab ---------------
@@ -940,7 +933,13 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
 }
 
 // --------------- Account Tab ---------------
-function AccountTab() {
+function AccountTab({
+  session,
+  connectors,
+}: {
+  session: SessionData;
+  connectors: any[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -956,9 +955,21 @@ function AccountTab() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Change password */}
-      <Card className="bg-card border-border">
+    <div className="space-y-10">
+      {/* Connectors Section */}
+      <div className="space-y-4">
+        <div className="flex flex-col">
+          <h3 className="text-base font-medium text-foreground">External Connectors</h3>
+          <p className="text-sm text-muted-foreground">Manage your links to external data sources and simulations</p>
+        </div>
+        <ConnectorsClient connectors={connectors} userId={session.id} />
+      </div>
+
+      <Separator className="bg-border/50" />
+
+      <div className="space-y-6">
+        {/* Change password */}
+        <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-base font-medium text-foreground">
             Change Password
@@ -984,7 +995,7 @@ function AccountTab() {
             <Input id="confirmPw" type="password" disabled placeholder="••••••••" />
           </div>
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
-            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <TriangleAlert className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
               Password change is in development. Social login users manage
               passwords through their provider.
@@ -1000,7 +1011,7 @@ function AccountTab() {
       <Card className="bg-card border-destructive/30">
         <CardHeader>
           <CardTitle className="text-base font-medium text-destructive flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
+            <TriangleAlert className="w-4 h-4" />
             Danger Zone
           </CardTitle>
         </CardHeader>
@@ -1054,6 +1065,7 @@ function AccountTab() {
         </CardContent>
       </Card>
     </div>
+  </div>
   );
 }
 
@@ -1131,7 +1143,7 @@ function NotificationsTab() {
         ))}
         <div className="pt-4">
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
-            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <TriangleAlert className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
               Email notifications are in development. Settings are saved locally
               for now.
@@ -1144,9 +1156,9 @@ function NotificationsTab() {
 }
 
 // --------------- Main Settings Component ---------------
-export function SettingsClient({ session, profile }: SettingsClientProps) {
+export function SettingsClient({ session, profile, connectors, activeTab = "profile" }: SettingsClientProps) {
   return (
-    <Tabs defaultValue="profile" className="space-y-6 w-full">
+    <Tabs defaultValue={activeTab} className="space-y-6 w-full">
       <TabsList className="bg-muted border border-border grid grid-cols-5 w-full">
         <TabsTrigger value="profile" className="text-xs flex items-center gap-2">
           Profile
@@ -1178,7 +1190,7 @@ export function SettingsClient({ session, profile }: SettingsClientProps) {
       </TabsContent>
 
       <TabsContent value="account">
-        <AccountTab />
+        <AccountTab session={session} connectors={connectors} />
       </TabsContent>
 
       <TabsContent value="notifications">

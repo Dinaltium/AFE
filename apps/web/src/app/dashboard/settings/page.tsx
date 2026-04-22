@@ -1,13 +1,19 @@
-import { getUserProfile } from "@/lib/actions";
+import { getUserProfile, getConnectorAccounts } from "@/lib/actions";
 import { SettingsClient } from "@/components/dashboard/SettingsClient";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab: activeTab } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const profile = await getUserProfile();
+  const connectors = await getConnectorAccounts();
 
   return (
     <div className="p-6 w-full space-y-10">
@@ -45,6 +51,8 @@ export default async function SettingsPage() {
               }
             : null
         }
+        connectors={connectors as any}
+        activeTab={activeTab || "profile"}
       />
     </div>
   );
