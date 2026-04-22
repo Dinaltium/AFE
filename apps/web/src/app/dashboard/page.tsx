@@ -12,7 +12,7 @@ async function DashboardContent() {
 
   let paymentHistory: Awaited<ReturnType<typeof getPaymentHistory>> = [];
   let auditLog: Awaited<ReturnType<typeof getAuditLog>> = [];
-  let profile: Awaited<ReturnType<typeof db.query.userProfiles.findFirst>> = null;
+  let profile: Awaited<ReturnType<typeof db.query.userProfiles.findFirst>> = undefined;
 
   try {
     // Ensure Glass Box has data even for historical payments.
