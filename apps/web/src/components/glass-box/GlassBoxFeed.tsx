@@ -7,12 +7,15 @@ import { Dot } from "lucide-react";
 import { useAFEStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
+import { useState } from "react";
+
 interface GlassBoxFeedProps {
   events: AuditEventRead[];
 }
 
 export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
   const isGlassBoxMode = useAFEStore((s) => s.isGlassBoxMode);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   return (
     <div className={cn(
@@ -22,9 +25,24 @@ export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
       <div className="flex items-center gap-2 mb-4">
         <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
         <h2 className="font-medium text-foreground text-sm">Glass Box</h2>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {events.length} entries
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {events.length} entries
+          </span>
+          <button 
+            disabled={isSyncing}
+            onClick={() => {
+              setIsSyncing(true);
+              window.location.reload();
+            }}
+            className={cn(
+              "text-[10px] text-primary hover:underline",
+              isSyncing && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {isSyncing ? "Syncing..." : "Sync"}
+          </button>
+        </div>
       </div>
 
       {events.length === 0 ? (
@@ -40,7 +58,7 @@ export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
                 key={e.id}
                 className="flex gap-2 py-1.5 border-b border-border last:border-0"
               >
-                <span className="text-muted-foreground flex-shrink-0 w-12 pt-0.5 tabular-nums opacity-70">
+                <span className="text-muted-foreground flex-shrink-0 w-24 pt-0.5 tabular-nums opacity-70">
                   {e.timestamp}
                 </span>
                 <span className="flex-shrink-0 pt-0.5">

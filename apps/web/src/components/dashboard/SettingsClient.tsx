@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { getUserProfile } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { updateUserProfile, deleteAccount, upsertSimulationSettings, addApprovedClient as addApprovedClientAction, removeApprovedClient as removeApprovedClientAction } from "@/lib/actions";
+import { updateUserProfile, deleteAccount } from "@/lib/actions";
 import {
   CODING_VIBE_THEME,
   LIGHT_DEFAULT_THEME,
@@ -71,6 +72,7 @@ interface ProfileData {
   collaboratorRate: string;
   themeConfig: Record<string, unknown> | null;
   collaborators: any[] | null;
+  gstEnabled: boolean | null;
 }
 
 interface SettingsClientProps {
@@ -168,11 +170,24 @@ function ProfileTab({
 }
 
 // --------------- Finance Management Tab ---------------
+
 function FinanceTab({ profile }: { profile: any }) {
   const [annualIncome, setAnnualIncome] = useState(profile?.annualIncomeEstimate ?? "");
   const [taxRate, setTaxRate] = useState(profile?.taxRate ?? "0.20");
   const [collaborators, setCollaborators] = useState<any[]>(profile?.collaborators ?? []);
+  const [gstEnabled, setGstEnabled] = useState<boolean>(profile?.gstEnabled ?? false);
   const [isPending, startTransition] = useTransition();
+
+  // Helper to refresh state from latest profile
+  async function refreshProfile() {
+    const latest = await getUserProfile();
+    if (latest) {
+      setAnnualIncome(latest.annualIncomeEstimate ?? "");
+      setTaxRate(latest.taxRate ?? "0.20");
+      setCollaborators(Array.isArray(latest.collaborators) ? latest.collaborators : []);
+      setGstEnabled(latest.gstEnabled ?? false);
+    }
+  }
 
   const addCollaborator = () => {
     setCollaborators([...collaborators, { name: "", rate: "0.10" }]);
@@ -195,8 +210,10 @@ function FinanceTab({ profile }: { profile: any }) {
           annualIncomeEstimate: annualIncome,
           taxRate,
           collaborators,
+          gstEnabled,
         });
-        toast.success("Finance settings updated");
+        await refreshProfile();
+        toast.success("Financial strategy applied successfully");
       } catch {
         toast.error("Failed to update finance settings");
       }
@@ -246,6 +263,21 @@ function FinanceTab({ profile }: { profile: any }) {
               />
               <p className="text-[10px] text-muted-foreground">0.20 = 20% tax slab</p>
             </div>
+          </div>
+
+          <Separator className="bg-border/50" />
+
+          <div className="flex items-center justify-between p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium text-foreground">Enable Global GST (18%)</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Automatically calculate and reconcile GST for every payment received.
+              </p>
+            </div>
+            <Switch 
+              checked={gstEnabled} 
+              onCheckedChange={setGstEnabled}
+            />
           </div>
         </CardContent>
       </Card>

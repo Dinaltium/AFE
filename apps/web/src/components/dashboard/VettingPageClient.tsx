@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { History, Clock, TrendingUp, Info, Mail } from "lucide-react";
 import { VettingPanel } from "@/components/vetting/VettingPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatINR, scoreColor, cn } from "@/lib/utils";
+import { markVettingAsRead } from "@/lib/actions";
 import type { UserProfile, DealVetResponse } from "@/types";
 
 interface VettedDeal {
@@ -46,7 +48,8 @@ export function VettingPageClient({ activeUser, initialRequests = [] }: VettingP
   const [activeRequest, setActiveRequest] = useState<any | null>(null);
 
   useEffect(() => {
-    markVettingAsRead();
+    // Fire-and-forget; page still works if this fails (e.g. session expired).
+    void markVettingAsRead();
   }, []);
 
   function handleVetComplete(result: DealVetResponse) {

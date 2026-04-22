@@ -26,6 +26,8 @@ class UserProfile(BaseModel):
     collaborator_rate: float       # Deprecated in favor of 'collaborators'
     collaborator_name: str         # Deprecated in favor of 'collaborators'
     collaborators: Optional[list[Collaborator]] = []
+    gst_enabled: bool = False
+    gst_rate: float = 0.18
 
 
 # ── Payment ───────────────────────────────────────────────────────────────────
@@ -133,6 +135,7 @@ class EmailClassification(BaseModel):
     extracted_amount: Optional[float] = None
     extracted_source: Optional[str] = None
     deal_description: Optional[str] = None
+    gst_applicable: bool = False
     confidence: float
     reasoning: str
     recommended_action: Literal["split", "vet", "ignore"]

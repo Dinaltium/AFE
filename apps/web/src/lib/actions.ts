@@ -73,7 +73,12 @@ export async function processPayment(payment: IncomingPayment): Promise<SplitRes
 
   const result = await engineFetch<SplitResponse>("/split/", {
     method: "POST",
-    body: JSON.stringify({ ...validated, user_id: user.id }),
+    body: JSON.stringify({ 
+      amount: validated.amount,
+      source: validated.source,
+      user_id: user.id,
+      gst_applicable: validated.gstApplicable ?? false
+    }),
   });
 
   const [newPayment] = await db
@@ -89,7 +94,7 @@ export async function processPayment(payment: IncomingPayment): Promise<SplitRes
       confidence: String(result.route.confidence),
       routeAction: result.route.action,
       architectReasoning: result.architect_reasoning,
-      gstApplicable: result.gst_applicable,
+      gstApplicable: validated.gstApplicable ?? false,
       gstAmount: String(result.split.gst_amount),
       tdsDeducted: String(result.split.tds_credit),
     })
@@ -101,37 +106,117 @@ export async function processPayment(payment: IncomingPayment): Promise<SplitRes
 }
 
 export async function getAuditLog(userId?: string): Promise<AuditEventRead[]> {
-  const session = await auth();
-  const targetUser = userId ?? session?.user?.id;
+  try {
+    const session = await auth();
+    const targetUser = userId ?? session?.user?.id;
 
-  if (!targetUser) {
-    return engineFetch<AuditEventRead[]>("/audit/?limit=50");
+    if (!targetUser) {
+      console.log("[AuditLog] No target user, fetching from engine");
+      return engineFetch<AuditEventRead[]>("/audit/?limit=50");
+    }
+
+    const rows = await db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.userId, targetUser))
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(50);
+
+    return rows.map((r) => ({
+      id: r.id,
+      payment_id: r.paymentId ?? "",
+      user_id: r.userId ?? "",
+      event_type: (r.eventType ?? "SplitExecuted") as AuditEventRead["event_type"],
+      description: r.description ?? "",
+      amount: r.amount ? Number(r.amount) : null,
+      timestamp: `${r.createdAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} ${r.createdAt.toISOString().slice(11, 16)}`,
+    }));
+  } catch (error) {
+    console.error("[AuditLog] Failed to fetch audit log:", error);
+    return [];
   }
+}
 
-  const rows = await db
-    .select()
-    .from(auditEvents)
-    .where(eq(auditEvents.userId, targetUser))
-    .orderBy(desc(auditEvents.createdAt))
-    .limit(50);
+export async function seedHistoricalAuditLog() {
+  try {
+    const user = await requireSession();
+    
+    const userPayments = await db.select()
+      .from(payments)
+      .where(eq(payments.userId, user.id));
+    
+    if (userPayments.length === 0) return;
 
-  return rows.map((r) => ({
-    id: r.id,
-    payment_id: r.paymentId ?? "",
-    user_id: r.userId ?? "",
-    event_type: (r.eventType ?? "SplitExecuted") as AuditEventRead["event_type"],
-    description: r.description ?? "",
-    amount: r.amount ? Number(r.amount) : null,
-    timestamp: r.createdAt.toISOString().slice(11, 19),
-  }));
+    // Fetch existing payment IDs in audit log to avoid duplicates
+    const existingEvents = await db.select({ paymentId: auditEvents.paymentId })
+      .from(auditEvents)
+      .where(eq(auditEvents.userId, user.id));
+    
+    const seededPaymentIds = new Set(existingEvents.map(e => e.paymentId).filter(Boolean));
+
+    console.log(`[AuditLog] Checking ${userPayments.length} payments for missing audit records...`);
+
+    let seededCount = 0;
+    for (const p of userPayments) {
+      if (!seededPaymentIds.has(p.id)) {
+        await db.insert(auditEvents).values({
+          userId: user.id,
+          paymentId: p.id,
+          eventType: "SplitExecuted",
+          description: `Historical Record: Deterministic split executed for ${p.source} (${p.amount} INR). All wallets synchronized.`,
+          amount: p.amount,
+          createdAt: p.createdAt,
+        });
+        seededCount++;
+      }
+    }
+    
+    if (seededCount > 0) {
+      console.log(`[AuditLog] Successfully backfilled ${seededCount} records.`);
+    }
+  } catch (error) {
+    console.error("[AuditLog] Seeding failed:", error);
+  }
 }
 
 export async function vetDeal(request: DealVetRequest): Promise<DealVetResponse> {
   const user = await requireSession();
-  return engineFetch<DealVetResponse>("/vet/", {
-    method: "POST",
-    body: JSON.stringify({ ...request, user_id: user.id }),
+  let response: DealVetResponse;
+  try {
+    const payload: DealVetRequest = {
+      deal_description: request.deal_description,
+      offered_amount: Number(request.offered_amount),
+      user_id: user.id!,
+      user_type: request.user_type,
+    };
+    response = await engineFetch<DealVetResponse>("/vet/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error("[vetDeal] Engine request failed:", err);
+    return {
+      score: 0,
+      verdict: "fair",
+      market_low: 0,
+      market_high: 0,
+      reasoning:
+        "The vetting engine is currently unavailable or returned an error. Your deal details were not analyzed.",
+      recommendation: "Please try again in a moment.",
+    };
+  }
+
+  // Log to audit trail
+  await db.insert(auditEvents).values({
+    userId: user.id,
+    eventType: "DealVetted",
+    description: `Analysis completed: ${response.verdict.toUpperCase()} (Score: ${response.score}). Market Range: ${response.market_low} - ${response.market_high}.`,
+    amount: String(request.offered_amount),
   });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/audit");
+  return response;
 }
 
 export async function getUsers(): Promise<UserProfile[]> {
@@ -155,7 +240,7 @@ export async function getPaymentHistory(page = 0, limit = 1000) {
     source: p.source,
     taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
     collaboratorAmount: p.collaboratorAmount ? Number(p.collaboratorAmount) : null,
-    collaboratorSplits: p.collaboratorSplits,
+    collaboratorSplits: (p.collaboratorSplits as any[] | null) ?? null,
     ownerAmount: p.ownerAmount ? Number(p.ownerAmount) : null,
     confidence: p.confidence ? Number(p.confidence) : null,
     routeAction: p.routeAction,
@@ -181,6 +266,7 @@ export async function updateUserProfile(data: {
   collaboratorName?: string;
   collaboratorRate?: string;
   collaborators?: any[];
+  gstEnabled?: boolean;
   themeConfig?: Record<string, unknown>;
 }) {
   const user = await requireSession();
@@ -201,6 +287,7 @@ export async function updateUserProfile(data: {
       ...(data.collaborators !== undefined && {
         collaborators: data.collaborators,
       }),
+      ...(data.gstEnabled !== undefined && { gstEnabled: data.gstEnabled }),
       ...(data.themeConfig !== undefined && { themeConfig: data.themeConfig }),
       updatedAt: new Date(),
     })

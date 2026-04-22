@@ -32,7 +32,9 @@ async def _fetch_profile_from_neon(user_id: str) -> Optional[UserProfile]:
                     p.tax_rate,
                     p.collaborator_rate,
                     p.collaborator_name,
-                    p.collaborators
+                    p.collaborators,
+                    p.gst_enabled,
+                    p.gst_rate
                 FROM users u
                 LEFT JOIN user_profiles p ON p.user_id = u.id
                 WHERE u.id = $1
@@ -88,6 +90,8 @@ async def _fetch_profile_from_neon(user_id: str) -> Optional[UserProfile]:
             collaborator_rate=float(row["collaborator_rate"] or 0),
             collaborator_name=row["collaborator_name"] or "",
             collaborators=collabs,
+            gst_enabled=bool(row["gst_enabled"] or False),
+            gst_rate=float(row["gst_rate"] or 0.18),
         )
     except Exception as exc:
         logger.error("Database lookup failed for user %s: %s", user_id, exc)

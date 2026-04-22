@@ -52,7 +52,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
-        return user;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          userType: user.userType ?? undefined,
+          isAdmin: user.isAdmin ?? undefined,
+        };
       },
     }),
   ],

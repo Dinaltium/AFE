@@ -48,6 +48,7 @@ export default async function SettingsPage({
                   unknown
                 > | null,
                 collaborators: profile.collaborators as any[] | null,
+                gstEnabled: (profile.gstEnabled ?? null) as boolean | null,
               }
             : null
         }

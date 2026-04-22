@@ -2,12 +2,16 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getPaymentHistory } from "@/lib/actions";
 import { PaymentsTable } from "@/components/dashboard/PaymentsTable";
+import { db } from "@/lib/db";
 
 export default async function PaymentsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const payments = await getPaymentHistory(0, 50);
+  const profile = await db.query.userProfiles.findFirst({
+    where: (up, { eq }) => eq(up.userId, session.user.id),
+  });
 
   return (
     <div className="p-6 space-y-6">
@@ -19,7 +23,7 @@ export default async function PaymentsPage() {
           All processed payments and their splits
         </p>
       </div>
-      <PaymentsTable payments={payments} />
+      <PaymentsTable payments={payments} profile={profile} />
     </div>
   );
 }

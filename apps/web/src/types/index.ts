@@ -10,6 +10,9 @@ export interface UserProfile {
   tax_rate: number;
   collaborator_rate: number;
   collaborator_name: string;
+  collaborators?: { name: string; rate: number }[];
+  gstEnabled?: boolean;
+  gstRate?: number;
 }
 
 export interface SplitResult {
@@ -18,7 +21,11 @@ export interface SplitResult {
   owner_amount: number;
   tax_rate: number;
   collaborator_rate: number;
+  collaborator_splits?: { name: string; amount: number; rate: number }[];
   owner_rate: number;
+  gst_amount?: number;
+  tds_credit?: number;
+  net_receivable?: number;
 }
 
 export type RouteAction = "auto_execute" | "pending_approval" | "flagged";
@@ -78,4 +85,5 @@ export interface IncomingPayment {
   source: string;
   user_id: string;
   currency?: string;
+  gst_applicable?: boolean;
 }

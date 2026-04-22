@@ -42,6 +42,8 @@ export const userProfiles = pgTable("user_profiles", {
   collaboratorRate: numeric("collaborator_rate").notNull().default("0.10"),
   collaboratorName: text("collaborator_name").notNull().default("Collaborator"),
   collaborators: jsonb("collaborators"),
+  gstEnabled: boolean("gst_enabled").notNull().default(false),
+  gstRate: numeric("gst_rate").notNull().default("0.18"),
   themeConfig: jsonb("theme_config"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

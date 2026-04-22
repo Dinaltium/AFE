@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Users, Banknote } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -26,20 +26,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { updateUserProfile } from "@/lib/actions";
+import { Label } from "@/components/ui/label";
 
 const onboardingSchema = z.object({
-  annualIncomeEstimate: z
+  annualIncomeEstimate: z.coerce
     .number()
     .min(1, "Enter your estimated annual income"),
-  taxRate: z
+  taxRate: z.coerce
     .number()
     .min(0)
     .max(1, "Tax rate must be between 0 and 1"),
-  collaboratorName: z.string().min(1, "Enter a collaborator name"),
-  collaboratorRate: z
-    .number()
-    .min(0)
-    .max(1, "Rate must be between 0 and 1"),
+  collaborators: z.array(z.object({
+    name: z.string().min(1, "Name required"),
+    rate: z.coerce.number().min(0).max(1, "Rate must be between 0 and 1"),
+  })),
 });
 
 type OnboardingValues = z.infer<typeof onboardingSchema>;
@@ -56,13 +56,17 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<OnboardingValues>({
-    resolver: zodResolver(onboardingSchema),
+    resolver: zodResolver(onboardingSchema) as unknown as Resolver<OnboardingValues>,
     defaultValues: {
       annualIncomeEstimate: 0,
       taxRate: 0.2,
-      collaboratorName: "Collaborator",
-      collaboratorRate: 0.1,
+      collaborators: [{ name: "Editor", rate: 0.1 }],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "collaborators",
   });
 
   const income = form.watch("annualIncomeEstimate");
@@ -73,12 +77,15 @@ export default function OnboardingPage() {
       await updateUserProfile({
         annualIncomeEstimate: String(values.annualIncomeEstimate),
         taxRate: String(values.taxRate),
-        collaboratorName: values.collaboratorName,
-        collaboratorRate: String(values.collaboratorRate),
+        collaborators: values.collaborators.map(c => ({
+          name: c.name,
+          rate: String(c.rate)
+        })),
       });
       toast.success("Profile saved.");
       router.push("/dashboard");
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("Could not save profile. Try again.");
     } finally {
       setLoading(false);
@@ -162,49 +169,59 @@ export default function OnboardingPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="collaboratorName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Collaborator name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Editor, Developer, Sub-consultant..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-muted-foreground">
-                      The person or role you share revenue with
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Collaborators</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: "", rate: 0.1 })}
+                  >
+                    + Add Collaborator
+                  </Button>
+                </div>
 
-              <FormField
-                control={form.control}
-                name="collaboratorRate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Collaborator rate</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        placeholder="0.10"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-muted-foreground">
-                      Decimal format (e.g. 0.10 = 10%)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-end">
+                    <FormField
+                      control={form.control}
+                      name={`collaborators.${index}.name`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Editor, Manager..." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`collaborators.${index}.rate`}
+                      render={({ field }) => (
+                        <FormItem className="w-24">
+                          <FormLabel>Rate</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => remove(index)}
+                      className="text-destructive"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
               <Button
                 type="submit"

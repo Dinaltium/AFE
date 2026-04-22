@@ -29,6 +29,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,9 +60,7 @@ interface DashboardOverviewProps {
   payments: PaymentRow[];
   initialAuditLog: AuditEventRead[];
   userType: string;
-  simulationEnabled: boolean;
-  minIntervalSeconds: number;
-  maxIntervalSeconds: number;
+  profile?: any;
   loading?: boolean;
 }
 
@@ -65,23 +68,74 @@ export function DashboardOverview({
   payments,
   initialAuditLog,
   userType,
+  profile,
   loading = false,
-}: Omit<DashboardOverviewProps, "simulationEnabled" | "minIntervalSeconds" | "maxIntervalSeconds">) {
-  const { auditLog, setAuditLog } = useAFEStore();
+}: DashboardOverviewProps) {
+  type CollaboratorSplitRow = { name: string; amount: number };
 
-  // Seed store with server-fetched audit log on mount
+  const { auditLog, setAuditLog } = useAFEStore();
+  
   useEffect(() => {
-    if (initialAuditLog.length > 0) {
+    if (initialAuditLog && initialAuditLog.length > 0) {
       setAuditLog(initialAuditLog);
     }
   }, [initialAuditLog, setAuditLog]);
+
+  // Helper to resolve collaborator names from splits or profile
+  const getCleanSplits = (p: PaymentRow): CollaboratorSplitRow[] => {
+    let splits = (p.collaboratorSplits as CollaboratorSplitRow[] | null) || [];
+    const profileCollabs = profile?.collaborators || [];
+    const totalProfileRate = profileCollabs.reduce((s: number, c: any) => s + Number(c.rate), 0);
+
+    // If splits is empty but there's a collaborator amount, or if it contains a generic "Collaborator"
+    // we try to resolve/unbundle from profile
+    const hasGeneric = splits.some((s) => s.name === "Collaborator");
+    
+    if (splits.length === 0 || hasGeneric) {
+      if (profileCollabs.length > 0) {
+        // Find the amount to distribute
+        const amountToDistribute = hasGeneric 
+          ? (splits.find((s) => s.name === "Collaborator")?.amount ?? 0)
+          : (p.collaboratorAmount ?? 0);
+        
+        const distributed = profileCollabs.map((c: any) => ({
+          name: c.name,
+          amount: Math.round(amountToDistribute * (Number(c.rate) / totalProfileRate))
+        }));
+
+        if (hasGeneric) {
+          // Replace "Collaborator" with the distributed list
+          return [...splits.filter((s) => s.name !== "Collaborator"), ...distributed];
+        }
+        return distributed;
+      } else {
+        // Fallback to collaborator_name or generic
+        if (splits.length === 0) {
+          return [
+            {
+            name: profile?.collaboratorName || "Collaborator",
+            amount: p.collaboratorAmount ?? 0
+            },
+          ];
+        }
+      }
+    }
+    
+    // Final check: if name is generic "Collaborator", try to use profile name
+    return splits.map((s) => {
+      if (s.name === "Collaborator" && profile?.collaboratorName && profile.collaboratorName !== "Collaborator") {
+        return { ...s, name: profile.collaboratorName };
+      }
+      return s;
+    });
+  };
 
   const totalProcessed = payments.reduce((s, p) => s + p.amount, 0);
   const totalTax = payments.reduce((s, p) => s + (p.taxAmount ?? 0), 0);
   const totalOwner = payments.reduce((s, p) => s + (p.ownerAmount ?? 0), 0);
 
   const collaboratorTotals = payments.reduce((acc, p) => {
-    const splits = (p.collaboratorSplits as any[]) || [];
+    const splits = getCleanSplits(p);
     splits.forEach((s) => {
       acc[s.name] = (acc[s.name] || 0) + Number(s.amount);
     });
@@ -90,10 +144,12 @@ export function DashboardOverview({
 
   // Get all unique collaborator names for chart bars
   const collaboratorNames = Array.from(
-    new Set(
-      payments.flatMap((p) => (p.collaboratorSplits as any[] || []).map((s) => s.name))
-    )
-  );
+    new Set([
+      ...payments.flatMap((p) => getCleanSplits(p).map((s) => s.name)),
+      ...(profile?.collaborators || []).map((c: any) => c.name),
+      ...(profile?.collaboratorName ? [profile.collaboratorName] : [])
+    ])
+  ).filter(n => n && n !== "Collaborator" || Object.keys(collaboratorTotals).includes(n));
 
   const chartData = payments
     .slice(0, 6)
@@ -104,8 +160,7 @@ export function DashboardOverview({
         Tax: Math.round(p.taxAmount ?? 0),
         "Take-home": Math.round(p.ownerAmount ?? 0),
       };
-      // Add individual collaborator amounts to the data object
-      const splits = (p.collaboratorSplits as any[]) || [];
+      const splits = getCleanSplits(p);
       splits.forEach((s) => {
         d[s.name] = Math.round(s.amount);
       });
@@ -329,8 +384,7 @@ export function DashboardOverview({
                         const { label, color } = routeDisplay(
                           p.routeAction ?? ""
                         );
-                        // @ts-ignore - dynamic column added via migration
-                        const splits = p.collaboratorSplits as any[] | null;
+                        const splits = getCleanSplits(p);
                         
                         return (
                           <TableRow key={p.id} className="border-border">
@@ -356,16 +410,32 @@ export function DashboardOverview({
                               {formatINR(p.ownerAmount ?? 0)}
                             </TableCell>
                              <TableCell className="text-sky-400">
-                                  <div className="flex flex-col gap-1">
-                                    <span className="font-medium text-foreground">{formatINR(p.collaboratorAmount ?? 0)}</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {splits && splits.map((s, idx) => (
-                                        <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 whitespace-nowrap">
-                                          {s.name}: {formatINR(s.amount)}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
+                               <div className="flex flex-col gap-1">
+                                 <span className="font-medium text-foreground">{formatINR(p.collaboratorAmount ?? 0)}</span>
+                                 {splits && splits.length > 0 && (
+                                   <Popover>
+                                     <PopoverTrigger asChild>
+                                       <button className="flex items-center gap-1.5 cursor-pointer group outline-none">
+                                         <Users className="w-3 h-3 text-sky-400 group-hover:text-primary transition-colors" />
+                                         <span className="text-[10px] text-sky-600 font-bold hover:text-primary transition-colors decoration-dotted underline-offset-2 underline">
+                                           {splits.length} {splits.length === 1 ? 'member' : 'members'}
+                                         </span>
+                                       </button>
+                                     </PopoverTrigger>
+                                     <PopoverContent className="w-48 bg-card border border-border shadow-2xl p-3 z-50">
+                                       <div className="space-y-2">
+                                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold border-b border-border pb-1 mb-2">Split Breakdown</p>
+                                         {splits.map((s, idx) => (
+                                           <div key={idx} className="flex items-center justify-between gap-4 text-[11px]">
+                                             <span className="text-muted-foreground font-medium">{s.name}</span>
+                                             <span className="font-bold text-foreground">{formatINR(s.amount)}</span>
+                                           </div>
+                                         ))}
+                                       </div>
+                                     </PopoverContent>
+                                   </Popover>
+                                 )}
+                               </div>
                              </TableCell>
                             <TableCell className="pr-6">
                               <Badge className={`text-[10px] py-0 h-5 ${color}`}>

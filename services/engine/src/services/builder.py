@@ -31,10 +31,15 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     amount = payment.amount
     
     # GST and TDS logic
+    gst_enabled = getattr(user, "gst_enabled", False)
+    gst_rate = getattr(user, "gst_rate", 0.18)
+    
     gst_amount = 0.0
     tds_credit = 0.0
-    if payment.gst_applicable:
-        gst_amount = round(amount * 0.18, 2)
+    if payment.gst_applicable or gst_enabled:
+        # For business-to-business, we assume GST (18%) and TDS (10%)
+        # Note: Professional fees usually attract 10% TDS (Sec 194J)
+        gst_amount = round(amount * gst_rate, 2)
         tds_credit = round(amount * 0.10, 2)
 
     # Progressive tax calculation

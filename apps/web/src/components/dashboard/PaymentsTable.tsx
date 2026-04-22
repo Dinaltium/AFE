@@ -28,6 +28,7 @@ type PaymentRow = {
 
 interface PaymentsTableProps {
   payments: PaymentRow[];
+  profile?: any;
   loading?: boolean;
 }
 
@@ -53,7 +54,56 @@ function ConfidenceBadge({ confidence }: { confidence: number | null }) {
   return <span className={`text-sm font-medium ${color}`}>{pct}%</span>;
 }
 
-export function PaymentsTable({ payments, loading = false }: PaymentsTableProps) {
+export function PaymentsTable({ payments, profile, loading = false }: PaymentsTableProps) {
+  // Helper to resolve collaborator names from splits or profile
+  const getCleanSplits = (p: PaymentRow) => {
+    let splits = (p.collaboratorSplits as any[]) || [];
+    const profileCollabs = profile?.collaborators || [];
+    const totalProfileRate = profileCollabs.reduce((s: number, c: any) => s + Number(c.rate), 0);
+
+    // If splits is empty but there's a collaborator amount, or if it contains a generic "Collaborator"
+    // we try to resolve/unbundle from profile
+    const hasGeneric = splits.some(s => s.name === "Collaborator");
+    
+    if (splits.length === 0 || hasGeneric) {
+      if (profileCollabs.length > 0) {
+        // Find the amount to distribute
+        const amountToDistribute = hasGeneric 
+          ? splits.find(s => s.name === "Collaborator").amount 
+          : (p.collaboratorAmount ?? 0);
+        
+        const distributed = profileCollabs.map((c: any) => ({
+          name: c.name,
+          amount: Math.round(amountToDistribute * (Number(c.rate) / totalProfileRate))
+        }));
+
+        if (hasGeneric) {
+          // Replace "Collaborator" with the distributed list
+          return [
+            ...splits.filter(s => s.name !== "Collaborator"),
+            ...distributed
+          ];
+        }
+        return distributed;
+      } else {
+        // Fallback to collaborator_name or generic
+        if (splits.length === 0) {
+          return [{
+            name: profile?.collaboratorName || "Collaborator",
+            amount: p.collaboratorAmount ?? 0
+          }];
+        }
+      }
+    }
+    
+    // Final check: if name is generic "Collaborator", try to use profile name
+    return splits.map(s => {
+      if (s.name === "Collaborator" && profile?.collaboratorName && profile.collaboratorName !== "Collaborator") {
+        return { ...s, name: profile.collaboratorName };
+      }
+      return s;
+    });
+  };
   if (loading) {
     return (
       <Card className="bg-card border-border">
@@ -101,7 +151,7 @@ export function PaymentsTable({ payments, loading = false }: PaymentsTableProps)
           <TableBody>
             {payments.map((p) => {
               const { label, color } = routeDisplay(p.routeAction ?? "");
-              const splits = (p.collaboratorSplits as any[]) || [];
+              const splits = getCleanSplits(p);
               return (
                 <TableRow key={p.id} className="border-border">
                   <TableCell className="pl-6 text-muted-foreground text-xs whitespace-nowrap">

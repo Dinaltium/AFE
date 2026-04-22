@@ -25,6 +25,7 @@ Respond ONLY with valid JSON:
   "extracted_amount": <float INR or null>,
   "extracted_source": "<payer name or null>",
   "deal_description": "<full deal context or null>",
+  "gst_applicable": <boolean>,
   "confidence": <float 0.0-1.0>,
   "reasoning": "<one sentence explanation>",
   "recommended_action": "<split|vet|ignore>"
@@ -122,6 +123,7 @@ async def classify_email(
                 extracted_amount=data.get("extracted_amount"),
                 extracted_source=data.get("extracted_source"),
                 deal_description=data.get("deal_description"),
+                gst_applicable=data.get("gst_applicable", False),
                 confidence=float(data["confidence"]),
                 reasoning=data["reasoning"],
                 recommended_action=data["recommended_action"],
