@@ -417,3 +417,131 @@ export async function updateBankBalance(delta: number) {
     })
     .where(eq(bankAccounts.userId, user.id));
 }
+
+export async function syncGmailEmails() {
+  const user = await requireSession();
+
+  const [connector] = await db
+    .select()
+    .from(connectorAccounts)
+    .where(
+      and(
+        eq(connectorAccounts.userId, user.id),
+        eq(connectorAccounts.type, "gmail")
+      )
+    )
+    .limit(1);
+
+  if (!connector || connector.status !== "connected") {
+    throw new Error("Gmail not connected");
+  }
+
+  const config = connector.config as { accessToken?: string } | null;
+  if (!config?.accessToken) throw new Error("No Gmail access token stored");
+
+  const query = encodeURIComponent(
+    "subject:(payment OR invoice OR credited OR brand deal OR collaboration OR paid) newer_than:7d"
+  );
+
+  const listRes = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`,
+    { headers: { Authorization: `Bearer ${config.accessToken}` } }
+  );
+
+  if (!listRes.ok) throw new Error(`Gmail API error: ${listRes.status}`);
+  const listData = await listRes.json();
+  const messages: { id: string }[] = listData.messages ?? [];
+
+  for (const msg of messages.slice(0, 10)) {
+    const msgRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`,
+      { headers: { Authorization: `Bearer ${config.accessToken}` } }
+    );
+    if (!msgRes.ok) continue;
+    const msgData = await msgRes.json();
+
+    const headers: { name: string; value: string }[] =
+      msgData.payload?.headers ?? [];
+    const subject =
+      headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+    const fromRaw =
+      headers.find((h) => h.name === "From")?.value ?? "";
+    const fromEmail = fromRaw.match(/<(.+)>/)?.[1] ?? fromRaw;
+    const fromName = fromRaw.replace(/<.+>/, "").trim();
+    const bodyPreview: string = msgData.snippet ?? "";
+
+    // Skip if already saved
+    const existing = await db
+      .select({ id: inboxEmails.id })
+      .from(inboxEmails)
+      .where(
+        and(
+          eq(inboxEmails.userId, user.id),
+          eq(inboxEmails.fromEmail, fromEmail),
+          eq(inboxEmails.subject, subject)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) continue;
+
+    const saved = await saveInboxEmail({
+      connectorId: connector.id,
+      connectorType: "gmail",
+      fromName,
+      fromEmail,
+      subject,
+      bodyPreview,
+      bodyFull: bodyPreview,
+      status: "unread",
+    });
+
+    const classification = await engineFetch<{
+      category: string;
+      extracted_amount?: number;
+      extracted_source?: string;
+      deal_description?: string;
+      recommended_action: string;
+      reasoning: string;
+      confidence: number;
+    }>("/connectors/classify-email", {
+      method: "POST",
+      body: JSON.stringify({
+        email_id: saved.id,
+        from_email: fromEmail,
+        subject,
+        body: bodyPreview,
+      }),
+    });
+
+    if (
+      classification.recommended_action === "split" &&
+      classification.extracted_amount
+    ) {
+      const result = await processPayment({
+        amount: classification.extracted_amount,
+        source: classification.extracted_source ?? subject,
+        user_id: user.id!,
+      });
+      await updateEmailStatus(saved.id, "processed", "split", result.payment_id);
+    } else if (
+      classification.recommended_action === "vet" &&
+      classification.deal_description
+    ) {
+      await vetDeal({
+        deal_description: classification.deal_description,
+        offered_amount: classification.extracted_amount ?? 0,
+        user_id: user.id!,
+        user_type: "freelancer",
+      });
+      await updateEmailStatus(saved.id, "flagged", "vet");
+    } else {
+      await updateEmailStatus(saved.id, "ignored", "ignore");
+    }
+  }
+
+  await db
+    .update(connectorAccounts)
+    .set({ lastSyncedAt: new Date() })
+    .where(eq(connectorAccounts.id, connector.id));
+}
