@@ -7,6 +7,10 @@ import {
   userProfiles,
   payments,
   auditEvents,
+  connectorAccounts,
+  inboxEmails,
+  bankTransactions,
+  bankAccounts,
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -220,4 +224,196 @@ export async function logRejection(source: string, amount: number) {
     description: `Payment from "${source}" rejected by user`,
     amount: String(amount),
   });
+}
+
+// ─── Connector Account Actions ───────────────────────────────────────────────
+
+export async function getConnectorAccounts() {
+  const user = await requireSession();
+  return db
+    .select()
+    .from(connectorAccounts)
+    .where(eq(connectorAccounts.userId, user.id));
+}
+
+export async function upsertConnectorAccount(data: {
+  type: string;
+  status: string;
+  config?: Record<string, unknown>;
+}) {
+  const user = await requireSession();
+  const existing = await db
+    .select()
+    .from(connectorAccounts)
+    .where(
+      and(
+        eq(connectorAccounts.userId, user.id),
+        eq(connectorAccounts.type, data.type)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(connectorAccounts)
+      .set({
+        status: data.status,
+        config: data.config ?? existing[0].config,
+        lastSyncedAt: new Date(),
+      })
+      .where(eq(connectorAccounts.id, existing[0].id));
+    return existing[0].id;
+  }
+
+  const [row] = await db
+    .insert(connectorAccounts)
+    .values({ userId: user.id! as any, ...data })
+    .returning();
+  return row.id;
+}
+
+// ─── InboxAI Email Actions ────────────────────────────────────────────────────
+
+export async function getInboxEmails(limit = 50) {
+  const user = await requireSession();
+  return db
+    .select()
+    .from(inboxEmails)
+    .where(eq(inboxEmails.userId, user.id))
+    .orderBy(desc(inboxEmails.receivedAt))
+    .limit(limit);
+}
+
+export async function saveInboxEmail(data: {
+  connectorId?: string;
+  connectorType: string;
+  fromName?: string;
+  fromEmail: string;
+  subject: string;
+  bodyPreview?: string;
+  bodyFull?: string;
+  emailCategory?: string;
+  status?: string;
+  extractedAmount?: string;
+  extractedSource?: string;
+  afeAction?: string;
+  classifierReasoning?: string;
+  classifierConfidence?: string;
+}) {
+  const user = await requireSession();
+  const [row] = await db
+    .insert(inboxEmails)
+    .values({ userId: user.id! as any, ...data })
+    .returning();
+  return row;
+}
+
+export async function updateEmailStatus(
+  emailId: string,
+  status: string,
+  afeAction?: string,
+  afeActionId?: string
+) {
+  const user = await requireSession();
+  await db
+    .update(inboxEmails)
+    .set({ status, afeAction, afeActionId, processedAt: new Date() })
+    .where(
+      and(eq(inboxEmails.id, emailId), eq(inboxEmails.userId, user.id))
+    );
+}
+
+// ─── PaySim Bank Actions ──────────────────────────────────────────────────────
+
+export async function getBankAccount() {
+  const user = await requireSession();
+  const [account] = await db
+    .select()
+    .from(bankAccounts)
+    .where(eq(bankAccounts.userId, user.id))
+    .limit(1);
+
+  if (!account) {
+    const hex = Math.random().toString(36).slice(2, 10).toUpperCase();
+    const accountNumber = `PAYSIM-${hex}`;
+    const [newAccount] = await db
+      .insert(bankAccounts)
+      .values({ userId: user.id! as any, accountNumber, balance: "50000" })
+      .returning();
+    return newAccount;
+  }
+  return account;
+}
+
+export async function getBankTransactions(limit = 50) {
+  const user = await requireSession();
+  return db
+    .select()
+    .from(bankTransactions)
+    .where(eq(bankTransactions.userId, user.id))
+    .orderBy(desc(bankTransactions.transactedAt))
+    .limit(limit);
+}
+
+export async function saveBankTransaction(data: {
+  connectorId?: string;
+  type: string;
+  amount: string;
+  description: string;
+  referenceId?: string;
+  fromEntity?: string;
+  status?: string;
+}) {
+  const user = await requireSession();
+  const [row] = await db
+    .insert(bankTransactions)
+    .values({ userId: user.id! as any, ...data })
+    .returning();
+  return row;
+}
+
+export async function updateBankTransaction(
+  transactionId: string,
+  data: {
+    status?: string;
+    paymentId?: string;
+    splitTaxAmount?: string;
+    splitCollaboratorAmount?: string;
+    splitOwnerAmount?: string;
+    afeConfidence?: string;
+    processedAt?: Date;
+  }
+) {
+  const user = await requireSession();
+  await db
+    .update(bankTransactions)
+    .set(data)
+    .where(
+      and(
+        eq(bankTransactions.id, transactionId),
+        eq(bankTransactions.userId, user.id)
+      )
+    );
+}
+
+export async function updateBankBalance(delta: number) {
+  const user = await requireSession();
+  const account = await getBankAccount();
+  const current = Number(account.balance);
+  const newBalance = String(Math.max(0, current + delta));
+  await db
+    .update(bankAccounts)
+    .set({
+      balance: newBalance,
+      totalCredits:
+        delta > 0
+          ? String(Number(account.totalCredits) + delta)
+          : account.totalCredits,
+      totalDebits:
+        delta < 0
+          ? String(Number(account.totalDebits) + Math.abs(delta))
+          : account.totalDebits,
+      updatedAt: new Date(),
+    })
+    .where(eq(bankAccounts.userId, user.id));
 }
