@@ -22,6 +22,11 @@ afe/
 - pnpm 9+
 - Python 3.12+
 
+## Deploy
+
+- **Vercel (web)**: see `apps/web/README_VERCEL.md`
+- **Hugging Face (engine, Docker Space)**: see `services/engine/README_HUGGINGFACE.md`
+
 ### Engine (FastAPI)
 ```bash
 cd services/engine
