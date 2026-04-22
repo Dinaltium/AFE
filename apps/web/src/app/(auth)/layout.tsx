@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  if (session) redirect("/dashboard");
+  if (session?.user?.id) redirect("/dashboard");
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">

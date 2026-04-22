@@ -10,7 +10,7 @@ export default auth((req) => {
     pathname.startsWith(prefix),
   );
 
-  if (isProtected && !req.auth) {
+  if (isProtected && !req.auth?.user?.id) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);

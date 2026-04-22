@@ -5,7 +5,7 @@ import { LandingPage } from "@/components/landing/LandingPage";
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect("/dashboard");
+  if (session?.user?.id) redirect("/dashboard");
 
   return (
     <SmoothScroll>
