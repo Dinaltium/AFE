@@ -81,65 +81,61 @@ async def run_vetting_agent(request: DealVetRequest) -> DealVetResponse:
         benchmarks=benchmarks
     )
 
-    try:
-        if settings.llm_provider == "nvidia":
-            data = await _call_nvidia(prompt)
-        elif settings.llm_provider == "togetherai":
-            data = await _call_togetherai(prompt)
-        else:
-            data = await _call_groq(prompt)
+    for caller in [_call_groq, _call_nvidia, _call_together]:
+        try:
+            data = await caller(prompt)
+            return DealVetResponse(
+                score=int(data["score"]),
+                verdict=data["verdict"],
+                market_low=float(data["market_low"]),
+                market_high=float(data["market_high"]),
+                reasoning=data["reasoning"],
+                recommendation=data["recommendation"],
+            )
+        except Exception as exc:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Vetting LLM call failed (%s): %s",
+                           caller.__name__, exc)
 
-        return DealVetResponse(
-            score=int(data["score"]),
-            verdict=data["verdict"],
-            market_low=float(data["market_low"]),
-            market_high=float(data["market_high"]),
-            reasoning=data["reasoning"],
-            recommendation=data["recommendation"],
-        )
-    except Exception as e:
-        print(f"Vetting agent error: {e}")
-        raise RuntimeError(f"Deal Vetting Agent failed: {str(e)}")
+    raise RuntimeError("Deal Vetting Agent failed across all providers")
 
 
 async def _call_groq(prompt: str) -> dict:
     from groq import Groq
     client = Groq(api_key=settings.groq_api_key)
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile", # Update to current stable model
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=512,
         temperature=0.1,
     )
-    return _clean_json_response(response.choices[0].message.content)
+    return json.loads(response.choices[0].message.content.strip())
 
 
 async def _call_nvidia(prompt: str) -> dict:
     from openai import OpenAI
     client = OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
-        api_key=settings.nvidia_api_key
+        api_key=settings.nvidia_api_key,
     )
     response = client.chat.completions.create(
-        model="meta/llama-3.3-70b-instruct",
+        model="nvidia/llama-3.1-nemotron-ultra-253b-v1",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=512,
         temperature=0.1,
     )
-    return _clean_json_response(response.choices[0].message.content)
+    return json.loads(response.choices[0].message.content.strip())
 
 
-async def _call_togetherai(prompt: str) -> dict:
-    from openai import OpenAI
-    client = OpenAI(
-        base_url="https://api.together.xyz/v1",
-        api_key=settings.togetherai_api_key
-    )
+async def _call_together(prompt: str) -> dict:
+    from together import Together
+    client = Together(api_key=settings.together_api_key)
     response = client.chat.completions.create(
         model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=512,
         temperature=0.1,
     )
-    return _clean_json_response(response.choices[0].message.content)
+    return json.loads(response.choices[0].message.content.strip())
 
