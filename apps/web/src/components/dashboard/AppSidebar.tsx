@@ -12,6 +12,7 @@ import {
   Settings2,
   LogOut,
   Sparkles,
+  Plug,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
   { label: "Audit Log", href: "/dashboard/audit", icon: Shield },
   { label: "Vetting", href: "/dashboard/vetting", icon: Target },
+  { label: "Connectors", href: "/dashboard/connectors", icon: Plug },
   { label: "Settings", href: "/dashboard/settings", icon: Settings2 },
 ];
 

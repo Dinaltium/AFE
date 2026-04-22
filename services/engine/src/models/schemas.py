@@ -12,14 +12,20 @@ import uuid
 UserType = Literal["creator", "freelancer", "consultant"]
 
 
+class Collaborator(BaseModel):
+    name: str
+    rate: float  # e.g. 0.10
+
+
 class UserProfile(BaseModel):
     id: str
     name: str
     user_type: UserType
     annual_income_estimate: float  # in INR — used for tax bracket calc
     tax_rate: float                # e.g. 0.20 for 20%
-    collaborator_rate: float       # e.g. 0.10 for 10% to editor/contractor
-    collaborator_name: str         # e.g. "Editor", "Developer", "Sub-consultant"
+    collaborator_rate: float       # Deprecated in favor of 'collaborators'
+    collaborator_name: str         # Deprecated in favor of 'collaborators'
+    collaborators: Optional[list[Collaborator]] = []
 
 
 # ── Payment ───────────────────────────────────────────────────────────────────
@@ -32,12 +38,18 @@ class IncomingPayment(BaseModel):
     gst_applicable: bool = False
 
 
+class CollaboratorSplit(BaseModel):
+    name: str
+    amount: float
+    rate: float
+
+
 class SplitResult(BaseModel):
     tax_amount: float
-    collaborator_amount: float
+    collaborator_amount: float  # Total of all collaborators
+    collaborator_splits: list[CollaboratorSplit] = []
     owner_amount: float
     tax_rate: float
-    collaborator_rate: float
     owner_rate: float
     effective_tax_rate: float
     tax_regime: str  # "slab" or "manual"
@@ -111,3 +123,35 @@ class DealVetResponse(BaseModel):
     market_high: float
     reasoning: str
     recommendation: str
+
+
+# ── Connectors ────────────────────────────────────────────────────────────────
+
+class EmailClassification(BaseModel):
+    email_id: str
+    category: Literal["payment", "deal", "spam", "unknown"]
+    extracted_amount: Optional[float] = None
+    extracted_source: Optional[str] = None
+    deal_description: Optional[str] = None
+    confidence: float
+    reasoning: str
+    recommended_action: Literal["split", "vet", "ignore"]
+
+
+class GeneratedEmail(BaseModel):
+    from_name: str
+    from_email: str
+    subject: str
+    body: str
+    category: Literal["payment", "deal", "spam", "newsletter", "unknown"]
+    suggested_amount: Optional[float] = None
+
+
+class GeneratedTransaction(BaseModel):
+    type: Literal["credit", "debit"]
+    amount: float
+    description: str
+    reference_id: str
+    from_entity: str
+    # "client_payment"|"platform_payout"|"brand_deal"|"expense"|"subscription"
+    category: str

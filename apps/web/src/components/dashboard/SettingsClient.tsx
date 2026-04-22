@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateUserProfile, deleteAccount, upsertSimulationSettings, addApprovedClient as addApprovedClientAction, removeApprovedClient as removeApprovedClientAction } from "@/lib/actions";
-import { CODING_VIBE_THEME } from "@/lib/theme";
+import {
+  CODING_VIBE_THEME,
+  LIGHT_DEFAULT_THEME,
+  AMBER_MINIMAL_THEME,
+  LAVENDER_DARK_THEME,
+} from "@/lib/theme";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +50,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Palette, AlertTriangle, Bell, MoreVertical, Pencil, Trash2, Cpu } from "lucide-react";
+import { 
+  CheckCircle2, 
+  Palette, 
+  AlertTriangle, 
+  Bell, 
+  MoreVertical, 
+  Pencil, 
+  Trash2, 
+  Cpu, 
+  Plus, 
+  Banknote, 
+  Users 
+} from "lucide-react";
 
 interface SessionData {
   id: string;
@@ -62,25 +79,12 @@ interface ProfileData {
   collaboratorName: string;
   collaboratorRate: string;
   themeConfig: Record<string, unknown> | null;
-}
-
-interface SimulationSettingsData {
-  simulationEnabled: boolean;
-  minIntervalSeconds: number;
-  maxIntervalSeconds: number;
-}
-
-interface ApprovedClientData {
-  id: string;
-  name: string;
-  autoApprove: boolean;
+  collaborators: any[] | null;
 }
 
 interface SettingsClientProps {
   session: SessionData;
   profile: ProfileData | null;
-  simulationSettings?: SimulationSettingsData | null;
-  approvedClients?: ApprovedClientData[];
 }
 
 // --------------- Profile Tab ---------------
@@ -91,26 +95,13 @@ function ProfileTab({
   session: SessionData;
   profile: ProfileData | null;
 }) {
-  const [annualIncome, setAnnualIncome] = useState(
-    profile?.annualIncomeEstimate ?? ""
-  );
-  const [taxRate, setTaxRate] = useState(profile?.taxRate ?? "0.20");
-  const [collabName, setCollabName] = useState(
-    profile?.collaboratorName ?? "Collaborator"
-  );
-  const [collabRate, setCollabRate] = useState(
-    profile?.collaboratorRate ?? "0.10"
-  );
   const [isPending, startTransition] = useTransition();
 
   function handleSave() {
     startTransition(async () => {
       try {
         await updateUserProfile({
-          annualIncomeEstimate: annualIncome,
-          taxRate,
-          collaboratorName: collabName,
-          collaboratorRate: collabRate,
+          // Identity updates can be added here
         });
         toast.success("Profile saved successfully");
       } catch {
@@ -171,70 +162,6 @@ function ProfileTab({
           </div>
         </div>
 
-        <Separator className="bg-border" />
-
-        {/* Editable finance fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full">
-          <div className="space-y-2">
-            <Label htmlFor="annualIncome" className="text-sm text-foreground font-medium">
-              Annual Income (INR)
-            </Label>
-            <Input
-              id="annualIncome"
-              type="number"
-              min="0"
-              placeholder="e.g. 1200000"
-              value={annualIncome}
-              onChange={(e) => setAnnualIncome(e.target.value)}
-              className="h-10"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="taxRate" className="text-sm text-foreground font-medium">
-              Tax Rate (decimal)
-            </Label>
-            <Input
-              id="taxRate"
-              type="number"
-              step="0.01"
-              min="0"
-              max="1"
-              placeholder="e.g. 0.20"
-              value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
-              className="h-10"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="collabName" className="text-sm text-foreground font-medium">
-              Collaborator Name
-            </Label>
-            <Input
-              id="collabName"
-              placeholder="e.g. Editor, Manager"
-              value={collabName}
-              onChange={(e) => setCollabName(e.target.value)}
-              className="h-10"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="collabRate" className="text-sm text-foreground font-medium">
-              Collaborator Rate
-            </Label>
-            <Input
-              id="collabRate"
-              type="number"
-              step="0.01"
-              min="0"
-              max="1"
-              placeholder="e.g. 0.10"
-              value={collabRate}
-              onChange={(e) => setCollabRate(e.target.value)}
-              className="h-10"
-            />
-          </div>
-        </div>
-
         <Button
           className="bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={handleSave}
@@ -247,73 +174,175 @@ function ProfileTab({
   );
 }
 
+// --------------- Finance Management Tab ---------------
+function FinanceTab({ profile }: { profile: any }) {
+  const [annualIncome, setAnnualIncome] = useState(profile?.annualIncomeEstimate ?? "");
+  const [taxRate, setTaxRate] = useState(profile?.taxRate ?? "0.20");
+  const [collaborators, setCollaborators] = useState<any[]>(profile?.collaborators ?? []);
+  const [isPending, startTransition] = useTransition();
+
+  const addCollaborator = () => {
+    setCollaborators([...collaborators, { name: "", rate: "0.10" }]);
+  };
+
+  const removeCollaborator = (index: number) => {
+    setCollaborators(collaborators.filter((_, i) => i !== index));
+  };
+
+  const updateCollaborator = (index: number, field: string, value: string) => {
+    const updated = [...collaborators];
+    updated[index] = { ...updated[index], [field]: value };
+    setCollaborators(updated);
+  };
+
+  const handleSave = () => {
+    startTransition(async () => {
+      try {
+        await updateUserProfile({
+          annualIncomeEstimate: annualIncome,
+          taxRate,
+          collaborators,
+        });
+        toast.success("Finance settings updated");
+      } catch {
+        toast.error("Failed to update finance settings");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-primary" />
+            Income & Tax Settings
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Configure your tax bracket and base income parameters for automatic splits.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <Label htmlFor="annualIncome" className="text-sm text-foreground font-medium flex items-center gap-2">
+                Annual Income (INR)
+              </Label>
+              <Input
+                id="annualIncome"
+                type="number"
+                placeholder="e.g. 1200000"
+                value={annualIncome}
+                onChange={(e) => setAnnualIncome(e.target.value)}
+                className="h-11 bg-muted/20 border-border focus:ring-primary"
+              />
+              <p className="text-[10px] text-muted-foreground">Excluding taxes and deductions</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taxRate" className="text-sm text-foreground font-medium">
+                Tax Rate (decimal)
+              </Label>
+              <Input
+                id="taxRate"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 0.20"
+                value={taxRate}
+                onChange={(e) => setTaxRate(e.target.value)}
+                className="h-11 bg-muted/20 border-border focus:ring-primary"
+              />
+              <p className="text-[10px] text-muted-foreground">0.20 = 20% tax slab</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
+                <Users className="w-4 h-4 text-sky-400" />
+                Collaborators & Stakeholders
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Define who else gets a cut from your income (editors, developers, etc.)
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={addCollaborator} 
+              className="border-primary/20 hover:bg-primary/5 text-primary text-xs h-8"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add Member
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {collaborators.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-dashed border-border bg-muted/5">
+              <Users className="w-8 h-8 text-muted-foreground/30 mb-2" />
+              <p className="text-xs text-muted-foreground text-center">
+                No collaborators configured. All income will be yours (after tax).
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {collaborators.map((c, i) => (
+                <div key={i} className="flex flex-wrap md:flex-nowrap items-end gap-3 p-3 rounded-lg border border-border bg-muted/10 group relative transition-all hover:border-primary/30">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name</Label>
+                    <Input 
+                      placeholder="e.g. Editor John" 
+                      value={c.name} 
+                      onChange={(e) => updateCollaborator(i, "name", e.target.value)}
+                      className="h-9 bg-background border-border"
+                    />
+                  </div>
+                  <div className="w-28 space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Cut (%)</Label>
+                    <div className="relative">
+                      <Input 
+                        placeholder="0.10" 
+                        value={c.rate} 
+                        onChange={(e) => updateCollaborator(i, "rate", e.target.value)}
+                        className="h-9 bg-background border-border pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => removeCollaborator(i)} 
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/5 h-9 w-9"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleSave} 
+          disabled={isPending}
+          className="bg-primary text-primary-foreground font-medium shadow-lg shadow-primary/20 px-8"
+        >
+          {isPending ? "Saving..." : "Apply Financial Strategy"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
 // --------------- Appearance Tab ---------------
-const LIGHT_PRESET = {
-  name: "light",
-  colors: {
-    background: "#FFFFFF",
-    foreground: "#111111",
-    card: "#F5F5F5",
-    "card-foreground": "#111111",
-    popover: "#FFFFFF",
-    "popover-foreground": "#111111",
-    primary: "#00CC7A",
-    "primary-foreground": "#FFFFFF",
-    secondary: "#F0F0F0",
-    "secondary-foreground": "#111111",
-    muted: "#F0F0F0",
-    "muted-foreground": "#737373",
-    accent: "#E8FFF5",
-    "accent-foreground": "#111111",
-    destructive: "#EF4444",
-    "destructive-foreground": "#FFFFFF",
-    border: "#E5E5E5",
-    input: "#E5E5E5",
-    ring: "#00CC7A",
-    "sidebar-background": "#F8F8F8",
-    "sidebar-foreground": "#111111",
-    "sidebar-primary": "#00CC7A",
-    "sidebar-primary-foreground": "#FFFFFF",
-    "sidebar-accent": "#E8FFF5",
-    "sidebar-accent-foreground": "#111111",
-    "sidebar-border": "#E5E5E5",
-    "sidebar-ring": "#00CC7A",
-  },
-};
-
-const DARK_PRESET = {
-  name: "dark",
-  colors: {
-    background: "#0A0A0A",
-    foreground: "#FAFAFA",
-    card: "#141414",
-    "card-foreground": "#FAFAFA",
-    popover: "#141414",
-    "popover-foreground": "#FAFAFA",
-    primary: "#00FF9C",
-    "primary-foreground": "#0A0A0A",
-    secondary: "#1C1C1C",
-    "secondary-foreground": "#FAFAFA",
-    muted: "#1C1C1C",
-    "muted-foreground": "#737373",
-    accent: "#1C1C1C",
-    "accent-foreground": "#FAFAFA",
-    destructive: "#FF4C4C",
-    "destructive-foreground": "#FFFFFF",
-    border: "#262626",
-    input: "#262626",
-    ring: "#00FF9C",
-    "sidebar-background": "#0B0B0B",
-    "sidebar-foreground": "#EDEDED",
-    "sidebar-primary": "#00FF9C",
-    "sidebar-primary-foreground": "#0A0A0A",
-    "sidebar-accent": "#00FF9C",
-    "sidebar-accent-foreground": "#0A0A0A",
-    "sidebar-border": "#262626",
-    "sidebar-ring": "#38BDF8",
-  },
-};
-
 // Blend two hex colours: t=0 → a, t=1 → b
 function mixHex(a: string, b: string, t: number): string {
   const p = (h: string) => [
@@ -347,6 +376,10 @@ function deriveThemeFromPickers(
   const sidebarBg = luminance(bg) < 0.15
     ? mixHex(bg, "#ffffff", 0.04)   // dark theme: sidebar slightly lighter
     : mixHex(bg, "#000000", 0.04);  // light theme: sidebar slightly darker
+  
+  const border = mixHex(bg, fg, 0.15);
+  const accent = mixHex(bg, primary, 0.12);
+
   return {
     primary,
     "primary-foreground": primaryFg,
@@ -360,13 +393,14 @@ function deriveThemeFromPickers(
     "secondary-foreground": fg,
     muted: mixHex(bg, fg, 0.08),
     "muted-foreground": mixHex(fg, bg, 0.45),
-    accent: mixHex(bg, primary, 0.12),
+    accent: accent,
     "accent-foreground": fg,
     destructive: "#FF4C4C",
     "destructive-foreground": "#FFFFFF",
-    border: mixHex(bg, fg, 0.15),
-    input: mixHex(bg, fg, 0.15),
+    border: border,
+    input: border,
     ring: primary,
+    "ring-3": primary,
     "sidebar-background": sidebarBg,
     "sidebar-foreground": fg,
     "sidebar-primary": primary,
@@ -375,10 +409,25 @@ function deriveThemeFromPickers(
     "sidebar-accent-foreground": fg,
     "sidebar-border": mixHex(bg, fg, 0.12),
     "sidebar-ring": primary,
+    "header-background": bg,
+    "header-foreground": mixHex(fg, bg, 0.1),
+    "header-border": border,
+    "header-primary": primary,
+    "header-primary-foreground": primaryFg,
+    "header-accent": accent,
+    "header-accent-foreground": fg,
+    "header-ring": primary,
   };
 }
 
 type CustomTheme = { id: string; name: string; colors: Record<string, string> };
+
+const BASE_PRESETS = [
+  { id: "amber-minimal", name: "Amber Minimal", colors: AMBER_MINIMAL_THEME.colors as Record<string, string> },
+  { id: "lavender-dark", name: "Lavender Dark", colors: LAVENDER_DARK_THEME.colors as Record<string, string> },
+  { id: "coding-vibe", name: "Coding Vibe", colors: CODING_VIBE_THEME.colors as Record<string, string> },
+  { id: "light", name: "Light Default", colors: LIGHT_DEFAULT_THEME.colors as Record<string, string> },
+];
 
 function AppearanceTab({ profile }: { profile: ProfileData | null }) {
   const { setTheme } = useTheme();
@@ -392,17 +441,21 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
   const savedActive = themeConfig?.active ?? themeConfig?.colors ?? null;
   const initialColors = savedActive ?? (CODING_VIBE_THEME.colors as Record<string, string>);
 
-  const BASE_PRESETS = [
-    { id: "coding-vibe", name: "Coding Vibe", colors: CODING_VIBE_THEME.colors as Record<string, string> },
-    { id: "dark", name: "Dark", colors: DARK_PRESET.colors as Record<string, string> },
-    { id: "light", name: "Light", colors: LIGHT_PRESET.colors as Record<string, string> },
-  ];
-
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>(themeConfig?.themes ?? []);
   const [activePresetId, setActivePresetId] = useState<string>(() => {
     if (!savedActive) return "coding-vibe";
-    const match = themeConfig?.themes?.find((t) => t.colors.primary === savedActive.primary && t.colors.background === savedActive.background);
-    return match?.id ?? "coding-vibe";
+    
+    // Check built-in presets
+    const builtInMatch = BASE_PRESETS.find(
+      (p) => p.colors.primary === savedActive.primary && p.colors.background === savedActive.background
+    );
+    if (builtInMatch) return builtInMatch.id;
+
+    // Check custom themes
+    const match = themeConfig?.themes?.find(
+      (t) => t.colors.primary === savedActive.primary && t.colors.background === savedActive.background
+    );
+    return match?.id ?? "custom";
   });
   const [activeColors, setActiveColors] = useState<Record<string, string>>(initialColors);
 
@@ -430,6 +483,17 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
     setBackgroundColor(colors.background ?? backgroundColor);
     setForegroundColor(colors.foreground ?? foregroundColor);
     setTheme(colors);
+
+    startTransition(async () => {
+      try {
+        await updateUserProfile({
+          themeConfig: { themes: customThemes, active: colors },
+        });
+        toast.success(`Theme switched to ${id}`);
+      } catch {
+        toast.error("Failed to save theme selection");
+      }
+    });
   }
 
   function applyCustomTheme(theme: CustomTheme) {
@@ -439,6 +503,17 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
     setBackgroundColor(theme.colors.background ?? backgroundColor);
     setForegroundColor(theme.colors.foreground ?? foregroundColor);
     setTheme(theme.colors);
+
+    startTransition(async () => {
+      try {
+        await updateUserProfile({
+          themeConfig: { themes: customThemes, active: theme.colors },
+        });
+        toast.success(`Switched to "${theme.name}"`);
+      } catch {
+        toast.error("Failed to save theme selection");
+      }
+    });
   }
 
   function previewColors() {
@@ -446,6 +521,23 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
     setActiveColors(derived);
     setActivePresetId("custom");
     setTheme(derived);
+  }
+
+  function applyDerivedAsActive() {
+    const derived = deriveThemeFromPickers(primaryColor, backgroundColor, foregroundColor);
+    startTransition(async () => {
+      try {
+        await updateUserProfile({
+          themeConfig: { themes: customThemes, active: derived },
+        });
+        setActiveColors(derived);
+        setActivePresetId("custom");
+        setTheme(derived);
+        toast.success("Applied custom colors as active theme");
+      } catch {
+        toast.error("Failed to save theme selection");
+      }
+    });
   }
 
   function saveNewTheme() {
@@ -648,7 +740,19 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
         </Card>
       )}
 
-      {/* Color pickers + save as theme */}
+      {/* Quick Action: Apply current colors */}
+      <div className="flex justify-end py-2">
+        <Button
+          size="sm"
+          onClick={applyDerivedAsActive}
+          disabled={isPending}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 px-10"
+        >
+          {isPending ? "Applying..." : "Save as Active Theme"}
+        </Button>
+      </div>
+
+      {/* Custom Colors */}
       <Card className="w-full bg-card border-border shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-medium text-foreground">
@@ -682,14 +786,16 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
             ))}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={previewColors}
-            className="border-border text-foreground hover:bg-accent/10"
-          >
-            Preview Colors
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={previewColors}
+              className="border-border text-foreground hover:bg-accent/10"
+            >
+              Preview Colors
+            </Button>
+          </div>
 
           {/* Preview strip */}
           <div
@@ -830,270 +936,7 @@ function AppearanceTab({ profile }: { profile: ProfileData | null }) {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-// --------------- Simulation Tab ---------------
-function SimulationTab({
-  initialSettings,
-  initialClients,
-}: {
-  initialSettings: SimulationSettingsData | null;
-  initialClients: ApprovedClientData[];
-}) {
-  const [enabled, setEnabled] = useState(initialSettings?.simulationEnabled ?? false);
-  const [minInterval, setMinInterval] = useState(initialSettings?.minIntervalSeconds ?? 5);
-  const [maxInterval, setMaxInterval] = useState(initialSettings?.maxIntervalSeconds ?? 180);
-  const [clients, setClients] = useState<ApprovedClientData[]>(initialClients);
-  const [newClientName, setNewClientName] = useState("");
-  const [newClientAutoApprove, setNewClientAutoApprove] = useState(true);
-  const [isAddingClient, setIsAddingClient] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  function saveSettings() {
-    startTransition(async () => {
-      try {
-        await upsertSimulationSettings({
-          simulationEnabled: enabled,
-          minIntervalSeconds: minInterval,
-          maxIntervalSeconds: maxInterval,
-        });
-        toast.success("Simulation settings saved");
-      } catch {
-        toast.error("Failed to save settings");
-      }
-    });
-  }
-
-  function addClient() {
-    if (!newClientName.trim()) {
-      toast.error("Enter a client name");
-      return;
-    }
-    startTransition(async () => {
-      try {
-        const row = await addApprovedClientAction(newClientName.trim(), newClientAutoApprove);
-        setClients((prev) => [...prev, { id: row.id, name: row.name, autoApprove: row.autoApprove }]);
-        setNewClientName("");
-        setNewClientAutoApprove(true);
-        setIsAddingClient(false);
-        toast.success(`"${row.name}" added`);
-      } catch {
-        toast.error("Failed to add client");
-      }
-    });
-  }
-
-  function removeClient(clientId: string) {
-    startTransition(async () => {
-      try {
-        await removeApprovedClientAction(clientId);
-        setClients((prev) => prev.filter((c) => c.id !== clientId));
-      } catch {
-        toast.error("Failed to remove client");
-      }
-    });
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Master toggle */}
-      <Card className="w-full bg-card border-border shadow-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium text-foreground flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-primary" />
-            Payment Simulation
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Enable payment simulation
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Autonomously generates incoming payments to demonstrate the AFE flow
-              </p>
-            </div>
-            <Switch checked={enabled} onCheckedChange={setEnabled} />
-          </div>
-          {!enabled && (
-            <div className="rounded-lg bg-muted/50 border border-border p-3">
-              <p className="text-xs text-muted-foreground">
-                Simulation mode is disabled. Enable to test the autonomous payment flow.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {enabled && (
-        <>
-          {/* Interval settings */}
-          <Card className="w-full bg-card border-border shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium text-foreground">
-                Payment Interval
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">Payment arrives every</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Min Interval (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={maxInterval - 1}
-                    value={minInterval}
-                    onChange={(e) => setMinInterval(Math.max(1, Number(e.target.value)))}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Max Interval (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={minInterval + 1}
-                    value={maxInterval}
-                    onChange={(e) => setMaxInterval(Math.max(minInterval + 1, Number(e.target.value)))}
-                    className="w-full h-10"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Approved clients */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium text-foreground">
-                  Approved Clients
-                </CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-border text-xs h-7"
-                  onClick={() => setIsAddingClient(true)}
-                >
-                  Add client
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {/* Inline add form */}
-              {isAddingClient && (
-                <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/20">
-                  <Input
-                    placeholder='Name (e.g. "YouTube AdSense")'
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addClient(); }}
-                    autoFocus
-                  />
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={newClientAutoApprove}
-                        onCheckedChange={setNewClientAutoApprove}
-                        id="auto-approve-new"
-                      />
-                      <Label htmlFor="auto-approve-new" className="text-xs text-muted-foreground cursor-pointer">
-                        Auto-approve
-                      </Label>
-                    </div>
-                    <div className="flex gap-4">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-10 px-6 text-sm"
-                        onClick={() => { setIsAddingClient(false); setNewClientName(""); }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-10 px-6 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={addClient}
-                        disabled={isPending}
-                      >
-                        Add Client
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {clients.length === 0 && !isAddingClient && (
-                <p className="text-xs text-muted-foreground py-2">
-                  No approved clients yet. Unknown senders will require manual approval.
-                </p>
-              )}
-
-              {clients.map((client, i) => (
-                <div key={client.id}>
-                  <div className="flex items-center justify-between py-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{client.name}</p>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${client.autoApprove ? "bg-primary" : "bg-muted-foreground"}`} />
-                        <p className="text-[11px] text-muted-foreground">
-                          {client.autoApprove ? "Auto-approve active" : "Manual approval required"}
-                        </p>
-                      </div>
-                    </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                          disabled={isPending}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-card border-border">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-foreground">
-                            Remove client?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-muted-foreground">
-                            &ldquo;{client.name}&rdquo; will no longer be auto-approved.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="border-border text-foreground">
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground"
-                            onClick={() => removeClient(client.id)}
-                          >
-                            Remove
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                  {i < clients.length - 1 && <Separator className="bg-border" />}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      <Button
-        className="bg-primary text-primary-foreground hover:bg-primary/90"
-        onClick={saveSettings}
-        disabled={isPending}
-      >
-        {isPending ? "Saving..." : "Save Settings"}
-      </Button>
-    </div>
-  );
+   );
 }
 
 // --------------- Account Tab ---------------
@@ -1301,23 +1144,23 @@ function NotificationsTab() {
 }
 
 // --------------- Main Settings Component ---------------
-export function SettingsClient({ session, profile, simulationSettings, approvedClients }: SettingsClientProps) {
+export function SettingsClient({ session, profile }: SettingsClientProps) {
   return (
     <Tabs defaultValue="profile" className="space-y-6 w-full">
       <TabsList className="bg-muted border border-border grid grid-cols-5 w-full">
-        <TabsTrigger value="profile" className="text-xs">
+        <TabsTrigger value="profile" className="text-xs flex items-center gap-2">
           Profile
         </TabsTrigger>
-        <TabsTrigger value="appearance" className="text-xs">
+        <TabsTrigger value="finance" className="text-xs flex items-center gap-2">
+          Finance
+        </TabsTrigger>
+        <TabsTrigger value="appearance" className="text-xs flex items-center gap-2">
           Appearance
         </TabsTrigger>
-        <TabsTrigger value="simulation" className="text-xs">
-          Simulation
-        </TabsTrigger>
-        <TabsTrigger value="account" className="text-xs">
+        <TabsTrigger value="account" className="text-xs flex items-center gap-2">
           Account
         </TabsTrigger>
-        <TabsTrigger value="notifications" className="text-xs">
+        <TabsTrigger value="notifications" className="text-xs flex items-center gap-2">
           Notifications
         </TabsTrigger>
       </TabsList>
@@ -1326,15 +1169,12 @@ export function SettingsClient({ session, profile, simulationSettings, approvedC
         <ProfileTab session={session} profile={profile} />
       </TabsContent>
 
-      <TabsContent value="appearance">
-        <AppearanceTab profile={profile} />
+      <TabsContent value="finance">
+        <FinanceTab profile={profile} />
       </TabsContent>
 
-      <TabsContent value="simulation">
-        <SimulationTab
-          initialSettings={simulationSettings ?? null}
-          initialClients={approvedClients ?? []}
-        />
+      <TabsContent value="appearance">
+        <AppearanceTab profile={profile} />
       </TabsContent>
 
       <TabsContent value="account">

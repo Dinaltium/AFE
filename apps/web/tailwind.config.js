@@ -22,6 +22,7 @@ export default {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			'ring-3': 'hsl(var(--ring-3))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			primary: {
@@ -63,6 +64,16 @@ export default {
   				ring: 'hsl(var(--sidebar-ring))',
   				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))'
+  			},
+  			header: {
+  				DEFAULT: 'hsl(var(--header-background))',
+  				foreground: 'hsl(var(--header-foreground))',
+  				primary: 'hsl(var(--header-primary))',
+  				'primary-foreground': 'hsl(var(--header-primary-foreground))',
+  				accent: 'hsl(var(--header-accent))',
+  				'accent-foreground': 'hsl(var(--header-accent-foreground))',
+  				border: 'hsl(var(--header-border))',
+  				ring: 'hsl(var(--header-ring))'
   			}
   		},
   		borderRadius: {
@@ -74,6 +85,10 @@ export default {
   			sans: [
   				'Inter',
   				'system-ui',
+  				'sans-serif'
+  			],
+  			outfit: [
+  				'Outfit',
   				'sans-serif'
   			],
   			mono: [

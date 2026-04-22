@@ -1,17 +1,13 @@
+import { getUserProfile } from "@/lib/actions";
+import { SettingsClient } from "@/components/dashboard/SettingsClient";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getUserProfile, getSimulationSettings, getApprovedClients } from "@/lib/actions";
-import { SettingsClient } from "@/components/dashboard/SettingsClient";
 
 export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [profile, simSettings, approvedClients] = await Promise.all([
-    getUserProfile(),
-    getSimulationSettings(),
-    getApprovedClients(),
-  ]);
+  const profile = await getUserProfile();
 
   return (
     <div className="p-6 w-full space-y-10">
@@ -45,23 +41,10 @@ export default async function SettingsPage() {
                   string,
                   unknown
                 > | null,
+                collaborators: profile.collaborators as any[] | null,
               }
             : null
         }
-        simulationSettings={
-          simSettings
-            ? {
-                simulationEnabled: simSettings.simulationEnabled,
-                minIntervalSeconds: simSettings.minIntervalSeconds,
-                maxIntervalSeconds: simSettings.maxIntervalSeconds,
-              }
-            : null
-        }
-        approvedClients={approvedClients.map((c) => ({
-          id: c.id,
-          name: c.name,
-          autoApprove: c.autoApprove,
-        }))}
       />
     </div>
   );

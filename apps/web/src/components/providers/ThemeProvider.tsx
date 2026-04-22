@@ -33,15 +33,19 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, userId }: ThemeProviderProps) {
+  // Initialize from storage or system if possible, but keep it stable for hydration
   const [currentTheme, setCurrentTheme] = useState<ThemeConfig>({
     name: CODING_VIBE_THEME.name,
     colors: { ...CODING_VIBE_THEME.colors },
   });
 
+  const [hasHydrated, setHasHydrated] = useState(false);
+
   useEffect(() => {
-    // 1. Apply stored theme only when user explicitly chose a custom theme.
+    // 1. Initial local apply
     const stored = loadThemeFromStorage();
     const mode = getThemeMode();
+    
     if (stored && mode !== "system") {
       applyTheme(stored);
       setCurrentTheme({ name: "custom", colors: stored });
@@ -49,16 +53,18 @@ export function ThemeProvider({ children, userId }: ThemeProviderProps) {
       const systemTheme = resolveSystemTheme();
       applyTheme(systemTheme.colors);
       setCurrentTheme(systemTheme);
-      setThemeMode("system");
+      if (!mode) setThemeMode("system");
     }
+    
+    setHasHydrated(true);
 
-    // 2. Fetch from DB in the background to keep devices in sync.
+    // 2. Background sync with DB
     if (userId) {
       loadUserTheme().then((colors) => {
         if (colors) {
+          // If the DB theme is different from what we have, it will apply via loadUserTheme
+          // and we just need to update the React state.
           setCurrentTheme({ name: "custom", colors });
-        } else {
-          setThemeMode("system");
         }
       });
     }
@@ -69,19 +75,23 @@ export function ThemeProvider({ children, userId }: ThemeProviderProps) {
     applyTheme(colors);
     saveThemeToStorage(colors);
     setThemeMode("custom");
-    setCurrentTheme((prev) => ({
-      ...prev,
-      colors: { ...prev.colors, ...colors },
-    }));
+    setCurrentTheme({
+      name: "custom",
+      colors,
+    });
   }, []);
 
   const resetToDefault = useCallback(() => {
     const defaults = CODING_VIBE_THEME.colors as Record<string, string>;
     applyTheme(defaults);
     saveThemeToStorage(defaults);
-    setThemeMode("custom");
+    setThemeMode("system");
     setCurrentTheme({ name: CODING_VIBE_THEME.name, colors: { ...defaults } });
   }, []);
+
+  // Prevent hydration mismatch by only rendering themed components after mount
+  // or by ensuring the initial state matches the server-side default.
+  // We use suppressHydrationWarning on the html tag to allow the script to change styles.
 
   return (
     <ThemeContext.Provider value={{ currentTheme, setTheme, resetToDefault }}>
@@ -97,3 +107,4 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
+

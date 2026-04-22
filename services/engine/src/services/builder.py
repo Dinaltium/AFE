@@ -25,7 +25,7 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     
     Split order:
     1. Tax is taken first (off the top)
-    2. Collaborator gets their % of the remaining amount
+    2. Collaborators get their % of the remaining amount (individually)
     3. Owner keeps the rest
     """
     amount = payment.amount
@@ -34,13 +34,10 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     gst_amount = 0.0
     tds_credit = 0.0
     if payment.gst_applicable:
-        # India Standard GST for services is 18%
         gst_amount = round(amount * 0.18, 2)
-        # Assume 10% TDS is withheld by the client on the base professional fee
         tds_credit = round(amount * 0.10, 2)
 
     # Progressive tax calculation
-    # Only use slab calculation when user.tax_rate is the default 0.20
     if user.tax_rate == 0.20:
         effective_tax_rate = calculate_tax_slab(user.annual_income_estimate)
         tax_regime = "slab"
@@ -52,24 +49,41 @@ def run_builder(payment: IncomingPayment, user: UserProfile) -> SplitResult:
     tax_amount = round(amount * effective_tax_rate, 2)
     after_tax = amount - tax_amount
 
-    # Step 2 — collaborator cut from remainder
-    collaborator_amount = round(after_tax * user.collaborator_rate, 2)
+    # Step 2 — collaborators cut from remainder
+    collaborator_splits = []
+    total_collaborator_amount = 0.0
+    
+    # Handle the new multi-collaborator list if present, else fallback to legacy
+    collaborators = user.collaborators or []
+    # If no collaborators in list but legacy field has a name, add it as a temporary collaborator
+    if not collaborators and user.collaborator_name and user.collaborator_rate > 0:
+        from src.models.schemas import Collaborator
+        collaborators = [Collaborator(name=user.collaborator_name, rate=user.collaborator_rate)]
 
-    # Step 3 — owner keeps the rest (avoids floating point drift)
-    owner_amount = round(amount - tax_amount - collaborator_amount, 2)
+    for collab in collaborators:
+        c_amount = round(after_tax * collab.rate, 2)
+        collaborator_splits.append({
+            "name": collab.name,
+            "amount": c_amount,
+            "rate": collab.rate
+        })
+        total_collaborator_amount += c_amount
 
-    # Net Receivable is the owner share plus the TDS credit (since it's tax already paid)
+    total_collaborator_amount = round(total_collaborator_amount, 2)
+
+    # Step 3 — owner keeps the rest
+    owner_amount = round(amount - tax_amount - total_collaborator_amount, 2)
+
+    # Net Receivable
     net_receivable = round(owner_amount + tds_credit, 2)
-
-    # Effective rates relative to original amount (for display)
     owner_rate = round(owner_amount / amount, 4) if amount > 0 else 0.0
 
     return SplitResult(
         tax_amount=tax_amount,
-        collaborator_amount=collaborator_amount,
+        collaborator_amount=total_collaborator_amount,
+        collaborator_splits=collaborator_splits,
         owner_amount=owner_amount,
         tax_rate=user.tax_rate,
-        collaborator_rate=user.collaborator_rate,
         owner_rate=owner_rate,
         effective_tax_rate=effective_tax_rate,
         tax_regime=tax_regime,

@@ -12,8 +12,6 @@ import {
 } from "recharts";
 import { formatINR, routeDisplay } from "@/lib/utils";
 import { GlassBoxFeed } from "@/components/glass-box/GlassBoxFeed";
-import { SimulationBanner } from "@/components/dashboard/SimulationBanner";
-import { PendingPaymentStack } from "@/components/dashboard/PendingPaymentCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -29,9 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GSTReconciliation } from "@/components/dashboard/GSTReconciliation";
 import { useAFEStore } from "@/lib/store";
-import { useSimulation } from "@/hooks/useSimulation";
 import type { AuditEventRead } from "@/types";
-import { TrendingUp, Wallet, Users, Banknote, Play } from "lucide-react";
+import { TrendingUp, Wallet, Users, Banknote } from "lucide-react";
 
 type PaymentRow = {
   id: string;
@@ -59,11 +56,8 @@ export function DashboardOverview({
   payments,
   initialAuditLog,
   userType,
-  simulationEnabled,
-  minIntervalSeconds,
-  maxIntervalSeconds,
   loading = false,
-}: DashboardOverviewProps) {
+}: Omit<DashboardOverviewProps, "simulationEnabled" | "minIntervalSeconds" | "maxIntervalSeconds">) {
   const { auditLog, setAuditLog } = useAFEStore();
 
   // Seed store with server-fetched audit log on mount
@@ -72,14 +66,6 @@ export function DashboardOverview({
       setAuditLog(initialAuditLog);
     }
   }, [initialAuditLog, setAuditLog]);
-
-  const simulation = useSimulation({
-    userType,
-    minIntervalSeconds,
-    maxIntervalSeconds,
-    enabled: simulationEnabled,
-    autoStart: simulationEnabled,
-  });
 
   const totalProcessed = payments.reduce((s, p) => s + p.amount, 0);
   const totalTax = payments.reduce((s, p) => s + (p.taxAmount ?? 0), 0);
@@ -129,16 +115,6 @@ export function DashboardOverview({
 
   return (
     <div className="space-y-0">
-      {/* Simulation banner — shown when running */}
-      {simulation.isRunning && (
-        <SimulationBanner
-          nextPaymentIn={simulation.nextPaymentIn}
-          processingCount={simulation.processingCount}
-          onPause={simulation.pause}
-          onStop={simulation.stop}
-        />
-      )}
-
       <div className="p-6 space-y-6">
         <Tabs defaultValue="overview" className="w-full">
           <div className="flex items-center justify-between mb-4">
@@ -146,17 +122,6 @@ export function DashboardOverview({
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="gst">GST Reconciliation</TabsTrigger>
               </TabsList>
-
-              {simulationEnabled && !simulation.isRunning && (
-                <Button
-                  size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5"
-                  onClick={simulation.start}
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  Start Simulation
-                </Button>
-              )}
             </div>
 
             <TabsContent value="overview" className="space-y-6 mt-0">
@@ -276,22 +241,6 @@ export function DashboardOverview({
               </Card>
             )}
 
-            {!simulationEnabled && (
-              <Card className="bg-card border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Simulation Disabled
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Enable payment simulation in Settings to see automated
-                    payments flow through AFE.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Recent splits */}
             {payments.length > 0 && (
               <Card className="bg-card border-border">
@@ -374,12 +323,6 @@ export function DashboardOverview({
       </Tabs>
     </div>
 
-      {/* Pending payment notification stack — fixed bottom-right */}
-      <PendingPaymentStack
-        payments={simulation.pendingPayments}
-        onAccept={simulation.acceptPayment}
-        onReject={simulation.rejectPayment}
-      />
     </div>
   );
 }

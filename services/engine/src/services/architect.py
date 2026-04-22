@@ -1,9 +1,12 @@
 import json
+import logging
 from src.core.config import settings
 from src.models.schemas import UserProfile, IncomingPayment
 
+logger = logging.getLogger(__name__)
 
-ARCHITECT_PROMPT = """You are the Architect — the AI brain of AFE (Autonomous Finance Engine).
+ARCHITECT_PROMPT = """You are the Architect — the AI brain of AFE
+(Autonomous Finance Engine).
 
 Your job is to analyse an incoming payment for a gig economy worker and:
 1. Determine confidence in the split decision (0.0 to 1.0)
@@ -24,13 +27,13 @@ Incoming payment:
 Respond ONLY with this JSON — no preamble, no markdown:
 {{
   "confidence": <float 0.0-1.0>,
-  "reasoning": "<one sentence explaining the split decision in plain English, mentioning tax bracket and collaborator agreement>"
+  "reasoning": "<one sentence explaining the split decision>"
 }}
 
 Confidence rules:
 - 0.90+ if source is clear and amounts are standard
 - 0.50-0.89 if source is ambiguous or amount is unusual
-- below 0.50 if source is completely unrecognised or amount is suspiciously large/small
+- below 0.50 if source is completely unrecognised or suspicious
 """
 
 
@@ -38,10 +41,6 @@ async def run_architect(
     payment: IncomingPayment,
     user: UserProfile,
 ) -> tuple[float, str]:
-    """
-    Calls LLM to get confidence score and plain-English reasoning.
-    Returns (confidence: float, reasoning: str)
-    """
     prompt = ARCHITECT_PROMPT.format(
         name=user.name,
         user_type=user.user_type,
@@ -52,22 +51,19 @@ async def run_architect(
         amount=payment.amount,
         source=payment.source,
     )
-
-    try:
-        if settings.llm_provider == "anthropic":
-            return await _call_anthropic(prompt)
-        elif settings.llm_provider == "groq":
-            return await _call_groq(prompt)
-        else:
-            return await _call_openai(prompt)
-    except Exception as e:
-        # Fallback — don't crash the whole payment flow
-        print(f"Architect LLM error: {e}")
-        return 0.85, (
-            f"Estimated {int(user.tax_rate * 100)}% tax based on ₹{user.annual_income_estimate:,.0f} "
-            f"annual income. {user.collaborator_name} on {int(user.collaborator_rate * 100)}% "
-            f"per standard agreement."
-        )
+    for caller in [_call_groq, _call_nvidia, _call_together]:
+        try:
+            return await caller(prompt)
+        except Exception as exc:
+            logger.warning("Architect LLM call failed (%s): %s",
+                           caller.__name__, exc)
+    # All providers failed — use safe fallback
+    return 0.85, (
+        f"Estimated {int(user.tax_rate * 100)}% tax based on "
+        f"₹{user.annual_income_estimate:,.0f} annual income. "
+        f"{user.collaborator_name} on {int(user.collaborator_rate * 100)}% "
+        f"per standard agreement."
+    )
 
 
 async def _call_groq(prompt: str) -> tuple[float, str]:
@@ -84,26 +80,31 @@ async def _call_groq(prompt: str) -> tuple[float, str]:
     return float(data["confidence"]), str(data["reasoning"])
 
 
-async def _call_anthropic(prompt: str) -> tuple[float, str]:
-    import anthropic
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=256,
-        messages=[{"role": "user", "content": prompt}],
+async def _call_nvidia(prompt: str) -> tuple[float, str]:
+    from openai import OpenAI
+    client = OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key=settings.nvidia_api_key,
     )
-    raw = message.content[0].text.strip()
+    response = client.chat.completions.create(
+        model="nvidia/llama-3.1-nemotron-ultra-253b-v1",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=256,
+        temperature=0.1,
+    )
+    raw = response.choices[0].message.content.strip()
     data = json.loads(raw)
     return float(data["confidence"]), str(data["reasoning"])
 
 
-async def _call_openai(prompt: str) -> tuple[float, str]:
-    from openai import OpenAI
-    client = OpenAI(api_key=settings.openai_api_key)
+async def _call_together(prompt: str) -> tuple[float, str]:
+    from together import Together
+    client = Together(api_key=settings.together_api_key)
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=256,
+        temperature=0.1,
     )
     raw = response.choices[0].message.content.strip()
     data = json.loads(raw)

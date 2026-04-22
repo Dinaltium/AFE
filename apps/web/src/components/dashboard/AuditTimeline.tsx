@@ -65,54 +65,49 @@ export function AuditTimeline({ events }: AuditTimelineProps) {
 
   return (
     <Card className="bg-card border-border">
-      <CardContent className="p-6">
-        <div className="relative">
-          {/* Vertical line */}
-          <div className="absolute left-[19px] top-2 bottom-2 w-px bg-border" />
+      <CardContent className="p-4">
+        <div className="max-h-[600px] overflow-y-auto pr-4 -mr-4 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
+          <div className="relative">
+            {/* Vertical line - hidden on small screens or adjusted for smaller icons */}
+            <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/50" />
 
-          <div className="space-y-5">
-            {events.map((event, i) => {
-              const config = EVENT_CONFIG[event.event_type];
-              const Icon = config?.icon ?? CheckCircle2;
-              const dotColor = config?.dotColor ?? "bg-muted-foreground";
-              const badgeColor =
-                config?.badgeColor ??
-                "bg-muted text-muted-foreground border-border";
-              const label = config?.label ?? event.event_type;
+            <div className="space-y-4">
+              {events.map((event, i) => {
+                const config = EVENT_CONFIG[event.event_type];
+                const Icon = config?.icon ?? CheckCircle2;
+                const dotColor = config?.dotColor ?? "bg-muted-foreground";
+                const badgeColor =
+                  config?.badgeColor ??
+                  "bg-muted text-muted-foreground border-border";
+                const label = config?.label ?? event.event_type;
 
-              return (
-                <div key={event.id ?? i} className="flex gap-4 items-start">
-                  {/* Dot + icon */}
-                  <div
-                    className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${dotColor}/10 border border-current/10`}
-                  >
-                    <Icon className={`w-4 h-4 ${badgeColor.split(" ")[1]}`} />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 pt-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <Badge
-                        className={`text-xs border ${badgeColor} px-2 py-0.5`}
-                      >
-                        {label}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground font-mono">
-                        {event.timestamp}
-                      </span>
-                      {event.amount !== null && (
-                        <span className="text-xs font-medium text-foreground">
-                          {formatINR(event.amount)}
-                        </span>
-                      )}
+                return (
+                  <div key={event.id ?? i} className="flex gap-3 items-start">
+                    {/* Compact Dot + icon */}
+                    <div
+                      className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${dotColor}/10 border border-current/10`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${badgeColor.split(" ")[1]}`} />
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {event.description}
-                    </p>
+
+                    {/* Content */}
+                    <div className="flex-1 pt-1 min-w-0">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="text-[10px] text-muted-foreground font-mono opacity-70">
+                          {event.timestamp}
+                        </span>
+                        <span className={`text-[11px] font-semibold uppercase tracking-wider ${badgeColor.split(" ")[1]}`}>
+                          {label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {event.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </CardContent>

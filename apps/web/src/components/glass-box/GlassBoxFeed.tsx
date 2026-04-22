@@ -28,19 +28,19 @@ export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
       </div>
 
       {events.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
+        <div className="flex-1 flex items-center justify-center text-[10px] text-muted-foreground text-center px-4">
           No events yet &mdash; process a payment to see the audit trail
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-0 font-mono text-xs">
+        <div className="max-h-[450px] overflow-y-auto space-y-0 font-mono text-[10px] pr-2 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
           {events.map((e) => {
             const Icon = EVENT_ICONS[e.event_type];
             return (
               <div
                 key={e.id}
-                className="flex gap-2 py-2 border-b border-border last:border-0"
+                className="flex gap-2 py-1.5 border-b border-border last:border-0"
               >
-                <span className="text-muted-foreground flex-shrink-0 w-14 pt-0.5 tabular-nums">
+                <span className="text-muted-foreground flex-shrink-0 w-12 pt-0.5 tabular-nums opacity-70">
                   {e.timestamp}
                 </span>
                 <span className="flex-shrink-0 pt-0.5">
@@ -51,10 +51,10 @@ export function GlassBoxFeed({ events }: GlassBoxFeedProps) {
                   )}
                 </span>
                 <div className="min-w-0">
-                  <span className={`font-medium ${eventColor(e.event_type)}`}>
+                  <span className={`font-semibold ${eventColor(e.event_type)}`}>
                     {e.event_type}
                   </span>
-                  <p className="text-muted-foreground leading-relaxed break-words mt-0.5">
+                  <p className="text-muted-foreground/80 leading-snug break-words mt-0.5">
                     {e.description}
                   </p>
                 </div>

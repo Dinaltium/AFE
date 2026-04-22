@@ -3,10 +3,10 @@ from typing import Literal
 
 
 class Settings(BaseSettings):
-    anthropic_api_key: str = ""
-    openai_api_key: str = ""
     groq_api_key: str = ""
-    llm_provider: Literal["anthropic", "openai", "groq"] = "groq"
+    nvidia_api_key: str = ""
+    together_api_key: str = ""
+    llm_provider: Literal["groq", "nvidia", "together"] = "groq"
     # Set this to your Neon PostgreSQL connection string for production.
     # Falls back to SQLite for local development.
     database_url: str = "sqlite:///./afe.db"

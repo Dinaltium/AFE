@@ -7,8 +7,6 @@ import {
   userProfiles,
   payments,
   auditEvents,
-  approvedClients,
-  simulationSettings,
 } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -182,6 +180,7 @@ export async function updateUserProfile(data: {
   taxRate?: string;
   collaboratorName?: string;
   collaboratorRate?: string;
+  collaborators?: any[];
   themeConfig?: Record<string, unknown>;
 }) {
   const user = await requireSession();
@@ -199,6 +198,9 @@ export async function updateUserProfile(data: {
       ...(data.collaboratorRate !== undefined && {
         collaboratorRate: data.collaboratorRate,
       }),
+      ...(data.collaborators !== undefined && {
+        collaborators: data.collaborators,
+      }),
       ...(data.themeConfig !== undefined && { themeConfig: data.themeConfig }),
       updatedAt: new Date(),
     })
@@ -208,67 +210,6 @@ export async function updateUserProfile(data: {
 export async function deleteAccount() {
   const user = await requireSession();
   await db.delete(users).where(eq(users.id, user.id));
-}
-
-// ─── Simulation Settings ──────────────────────────────────────────────────────
-
-export async function getSimulationSettings() {
-  const user = await requireSession();
-  const [row] = await db
-    .select()
-    .from(simulationSettings)
-    .where(eq(simulationSettings.userId, user.id))
-    .limit(1);
-  return row ?? null;
-}
-
-export async function upsertSimulationSettings(data: {
-  simulationEnabled: boolean;
-  minIntervalSeconds: number;
-  maxIntervalSeconds: number;
-}) {
-  const user = await requireSession();
-  await db
-    .insert(simulationSettings)
-    .values({ userId: user.id, ...data })
-    .onConflictDoUpdate({
-      target: simulationSettings.userId,
-      set: {
-        simulationEnabled: data.simulationEnabled,
-        minIntervalSeconds: data.minIntervalSeconds,
-        maxIntervalSeconds: data.maxIntervalSeconds,
-      },
-    });
-}
-
-// ─── Approved Clients ─────────────────────────────────────────────────────────
-
-export async function getApprovedClients() {
-  const user = await requireSession();
-  const rows = await db
-    .select()
-    .from(approvedClients)
-    .where(eq(approvedClients.userId, user.id))
-    .orderBy(approvedClients.createdAt);
-  return rows;
-}
-
-export async function addApprovedClient(name: string, autoApprove: boolean) {
-  const user = await requireSession();
-  const [row] = await db
-    .insert(approvedClients)
-    .values({ userId: user.id, name: name.trim(), autoApprove })
-    .returning();
-  return row;
-}
-
-export async function removeApprovedClient(clientId: string) {
-  const user = await requireSession();
-  await db
-    .delete(approvedClients)
-    .where(
-      and(eq(approvedClients.id, clientId), eq(approvedClients.userId, user.id))
-    );
 }
 
 export async function logRejection(source: string, amount: number) {
